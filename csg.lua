@@ -521,5 +521,157 @@ function m.Node:build(polygons, depth)
 	end
 end
 
+-- Extra functions
+
+local vec3zero = vec3()
+
+local v1 = vec3( 1,  1, -1) -- top front right	
+local v2 = vec3( 1, -1, -1) -- bottom front right	
+local v3 = vec3(-1, -1, -1) -- bottom front left	
+local v4 = vec3(-1,  1, -1) -- top front left
+local v5 = vec3( 1,  1,  1) -- top back right	
+local v6 = vec3( 1, -1,  1) -- bottom back right	
+local v7 = vec3(-1, -1,  1) -- bottom back left
+local v8 = vec3(-1,  1,  1) -- top back left
+
+local newVertex = m.Vertex.new
+local newPolygon = m.Polygon.new
+
+local abs = math.abs
+
+local epsilon = 1e-3
+
+
+local function newTriangle(a, b, c, shared)
+	local polygon = newPolygon({newVertex(a,vec3zero), newVertex(b,vec3zero), newVertex(c,vec3zero)}, shared)
+	local vertices = polygon.vertices
+	local normal = polygon.plane.normal
+	vertices[1].normal = normal
+	vertices[2].normal = normal
+	vertices[3].normal = normal
+	return polygon
+end
+
+local function FloatFuzzyEq(f1, f2, epsilon)
+	return f1 == f2 or abs(f1 - f2) <= (abs(f1) + 1) * epsilon
+end
+
+function m.fromOrientedCornerWedge() end
+function m.fromOrientedWedge() end
+
+function m.fromOrientedBasePart(cframe, size, shared)
+	local c1 = (cframe*CFrame.new(size*v1)).p
+	local c2 = (cframe*CFrame.new(size*v2)).p
+	local c3 = (cframe*CFrame.new(size*v3)).p
+	local c4 = (cframe*CFrame.new(size*v4)).p
+	local c5 = (cframe*CFrame.new(size*v5)).p
+	local c6 = (cframe*CFrame.new(size*v6)).p
+	local c7 = (cframe*CFrame.new(size*v7)).p
+	local c8 = (cframe*CFrame.new(size*v8)).p
+	local self = setmetatable({}, m)
+	self.polygons = {
+		newTriangle(c3, c4, c2, shared), newTriangle(c2 ,c4 ,c1, shared),
+		newTriangle(c1, c5, c2, shared), newTriangle(c2, c5, c6, shared),
+		newTriangle(c6, c5, c7, shared), newTriangle(c7, c5, c8, shared),
+		newTriangle(c8, c4, c7, shared), newTriangle(c7, c4, c3, shared),
+		newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
+		newTriangle(c4, c8, c1, shared), newTriangle(c1, c8, c5, shared)}
+	return self
+end
+
+function m.stitchPolygons(csg1, csg2)
+	local polygons1, polygons2 = csg1.polygons, csg2.polygons
+	local newcsg
+	for i = 1, #polygons1 do
+		local polygon1, polygon2 = polygons1[i], polygons2[i]
+		local vertices1, vertices2 = polygon1.vertices, polygon2.vertices
+		local d = ((vertices1[1].pos - vertices2[1].pos).unit):Dot(polygon1.plane.normal)
+		if FloatFuzzyEq(d, 0, epsilon) then
+		elseif d < 0 then
+			local polygons = {polygon1:clone(), polygon2:clone()}
+			polygons[1]:flip()
+			for i1 = 1, #vertices1 do
+				local i2 = (i1 == #vertices1 and 1) or i1 + 1
+				local midA, midB = vertices2[i1].pos, vertices1[i2].pos
+				insert(polygons, newTriangle(midA, vertices1[i1].pos, midB))
+				insert(polygons, newTriangle(midA, midB, vertices2[i2].pos))
+			end
+			newcsg = (newcsg and newcsg:union(setmetatable({["polygons"] = polygons}, m))) or setmetatable({["polygons"] = polygons}, m)
+		elseif d > 0 then
+			local polygons = {polygon1:clone(), polygon2:clone()}
+			polygons[2]:flip()
+			for i1 = 1, #vertices1 do
+				local i2 = (i1 == #vertices1 and 1) or i1 + 1
+				local midA, midB = vertices2[i1].pos, vertices1[i2].pos
+				insert(polygons, newTriangle(midB, vertices1[i1].pos, midA))
+				insert(polygons, newTriangle(vertices2[i2].pos, midB, midA))
+			end
+			newcsg = (newcsg and newcsg:union(setmetatable({["polygons"] = polygons}, m))) or setmetatable({["polygons"] = polygons}, m)
+		end
+	end
+	return newcsg
+end
+
+function m:getPolygonsFacingDirection(direction)
+	local other = self:clone()
+	local polygons = other.polygons
+	for i = #polygons, 1, -1 do
+		local d = polygons[i].plane.normal:Dot(direction)
+		if d <= 0 or FloatFuzzyEq(d, 0, epsilon) then
+			table.remove(polygons, i)
+		end
+	end
+	return other
+end
+
+function m:getPolygonsFacingPosition(position)
+	local other = self:clone()
+	local polygons = other.polygons
+	for i = #polygons, 1, -1 do
+		local v = polygons[i]
+		local d = v.plane.normal:Dot((position-v.vertices[1].pos))
+		if d <= 0 or FloatFuzzyEq(d, 0, epsilon) then
+			table.remove(polygons, i)
+		end
+	end
+	return other
+end
+
+function m:offsetVertices(vector)
+	local other = self:clone()
+	local polygons = other.polygons
+	for i1 = 1, #polygons do
+		local v1 = polygons[i1].vertices
+		for i2 = 1, #v1 do
+			local v2 = v1[i2]
+			v2.pos = v2.pos + vector
+		end
+	end
+	return other
+end
+
+function m:offsetVerticesFromPosition(position, maxdistance)
+	local other = self:clone()
+	local polygons = other.polygons
+	for i1 = 1, #polygons do
+		local v1 = polygons[i1].vertices
+		for i2 = 1, #v1 do
+			local v2 = v1[i2]
+			local pos = v2.pos
+			local dir = pos - position
+			local dist = math.clamp(maxdistance - dir.magnitude, 0, maxdistance)
+			v2.pos = pos + (dir.unit*dist)
+		end
+	end
+	return other
+end
+
+function m:offsetVerticesTowardsPosition()
+	
+end
+
+function m:scission()
+	
+end
 
 return m

@@ -36,7 +36,7 @@ local function Line(a, b)
 	Part.BrickColor = BrickColor.new("")
 	Part.Anchored = true
 	Part.CanCollide = false
-	Part.Size = Vector3.new(.05, .05, (a-b).magnitude)
+	Part.Size = Vector3.new(.025, .025, (a-b).magnitude)
 	Part.CFrame = CFrame.new((a + b) / 2, a) -- part will be "looking" at pos1
 	Part.Parent = workspace
 	return Part
@@ -76,12 +76,12 @@ local function Normals(solid)
 		local vtx3 = Vector3.new(v3[1], v3[2], v3[3])
 		local normal = (vtx2-vtx1):Cross(vtx3-vtx1).unit
 		local pos = (vtx1+vtx2+vtx3)/3
-		local part = Line(pos,pos+normal)
+		local part = Line(pos,(pos+(normal*.25)))
 		part.Name = ((i - 1)/3) + 1
 	end
 end
 
 return {
 	["Triangles"] = Triangles,
-	["Normals"] = Normals
+	["Normals"] = Normals,
 }

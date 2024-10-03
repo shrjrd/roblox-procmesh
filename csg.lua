@@ -521,25 +521,31 @@ function m.Node:build(polygons, depth)
 	end
 end
 
--- Extra functions
+-- Extra Functions
 
 local vec3zero = vec3()
+local vec3x = vec3(1,0,0)
+local vec3y = vec3(0,1,0)
+local vec3nz = vec3(0,0,-1)
 
-local v1 = vec3( 1,  1, -1) -- top front right	
-local v2 = vec3( 1, -1, -1) -- bottom front right	
-local v3 = vec3(-1, -1, -1) -- bottom front left	
-local v4 = vec3(-1,  1, -1) -- top front left
-local v5 = vec3( 1,  1,  1) -- top back right	
-local v6 = vec3( 1, -1,  1) -- bottom back right	
-local v7 = vec3(-1, -1,  1) -- bottom back left
-local v8 = vec3(-1,  1,  1) -- top back left
 
 local newVertex = m.Vertex.new
 local newPolygon = m.Polygon.new
 
 local abs = math.abs
 
+local mat3 = CFrame.new
+
 local epsilon = 1e-3
+
+
+local function FloatFuzzyEq(f1, f2, epsilon)
+	return f1 == f2 or abs(f1 - f2) <= (abs(f1) + 1) * epsilon
+end
+
+local function isCFrameAxisAligned(cf)
+	return cf.rightVector == vec3x and cf.upVector == vec3y and cf.lookVector == vec3nz
+end
 
 
 local function newTriangle(a, b, c, shared)
@@ -552,22 +558,94 @@ local function newTriangle(a, b, c, shared)
 	return polygon
 end
 
-local function FloatFuzzyEq(f1, f2, epsilon)
-	return f1 == f2 or abs(f1 - f2) <= (abs(f1) + 1) * epsilon
+function m.fromOrientedCylinder(cframe, size, shared)
+
 end
 
-function m.fromOrientedCornerWedge() end
-function m.fromOrientedWedge() end
+function m.fromOrientedSphereMesh(cframe, size, shared)
+
+end
+
+local v1 = vec3( 1,  1, -1) -- top front right	
+local v2 = vec3( 1, -1, -1) -- bottom front right	
+local v3 = vec3(-1, -1, -1) -- bottom front left	
+local v4 = vec3(-1,  1, -1) -- top front left
+local v5 = vec3( 1,  1,  1) -- top back right	
+local v6 = vec3( 1, -1,  1) -- bottom back right	
+local v7 = vec3(-1, -1,  1) -- bottom back left
+local v8 = vec3(-1,  1,  1) -- top back left
+
+function m.fromAxisAlignedCornerWedge(position, size, shared)
+	local c1 = (position + (size*v1)).p
+	local c2, c3 = (position + (size*v2)).p, (position + (size*v3)).p
+	local c6, c7 = (position + (size*v6)).p, (position + (size*v7)).p
+	local self = setmetatable({}, m)
+	self.polygons = {
+		newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
+		newTriangle(c3, c1, c2, shared), newTriangle(c6, c2, c1, shared),
+		newTriangle(c6, c1, c7, shared), newTriangle(c3, c7, c1, shared)}
+	return self
+end
+
+function m.fromOrientedCornerWedge(cframe, size, shared) 
+	local c1 = (cframe*CFrame.new(size*v1)).p
+	local c2, c3 = (cframe*CFrame.new(size*v2)).p, (cframe*CFrame.new(size*v3)).p
+	local c6, c7 = (cframe*CFrame.new(size*v6)).p, (cframe*CFrame.new(size*v7)).p
+	local self = setmetatable({}, m)
+	self.polygons = {
+		newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
+		newTriangle(c3, c1, c2, shared), newTriangle(c6, c2, c1, shared),
+		newTriangle(c6, c1, c7, shared), newTriangle(c3, c7, c1, shared)}
+	return self
+end
+
+function m.fromAxisAlignedWedge(position, size, shared)
+	local c2, c3 = position + (size*v2), position + (size*v3)
+	local c5, c6 = position + (size*v5), position + (size*v6)
+	local c7, c8 = position + (size*v7), position + (size*v8)
+	local self = setmetatable({}, m)
+	self.polygons = {
+		newTriangle(c2, c5, c6, shared), newTriangle(c7, c8, c3, shared),
+		newTriangle(c6, c5, c7, shared), newTriangle(c7, c5, c8, shared),
+		newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
+		newTriangle(c2, c3, c5, shared), newTriangle(c3, c8, c5, shared)}
+	return self
+end
+
+function m.fromOrientedWedge(cframe, size, shared) 
+	local c2, c3 = (cframe*CFrame.new(size*v2)).p, (cframe*CFrame.new(size*v3)).p
+	local c5, c6 = (cframe*CFrame.new(size*v5)).p, (cframe*CFrame.new(size*v6)).p
+	local c7, c8 = (cframe*CFrame.new(size*v7)).p, (cframe*CFrame.new(size*v8)).p
+	local self = setmetatable({}, m)
+	self.polygons = {
+		newTriangle(c2, c5, c6, shared), newTriangle(c7, c8, c3, shared),
+		newTriangle(c6, c5, c7, shared), newTriangle(c7, c5, c8, shared),
+		newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
+		newTriangle(c2, c3, c5, shared), newTriangle(c3, c8, c5, shared)}
+	return self
+end
+
+function m.fromAxisAlignedBasePart(position, size, shared)
+	local c1, c2 = position + (size*v1), position + (size*v2)
+	local c3, c4 = position + (size*v3), position + (size*v4)
+	local c5, c6 = position + (size*v5), position + (size*v6)
+	local c7, c8 = position + (size*v7), position + (size*v8)
+	local self = setmetatable({}, m)
+	self.polygons = {
+		newTriangle(c3, c4, c2, shared), newTriangle(c2 ,c4 ,c1, shared),
+		newTriangle(c1, c5, c2, shared), newTriangle(c2, c5, c6, shared),
+		newTriangle(c6, c5, c7, shared), newTriangle(c7, c5, c8, shared),
+		newTriangle(c8, c4, c7, shared), newTriangle(c7, c4, c3, shared),
+		newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
+		newTriangle(c4, c8, c1, shared), newTriangle(c1, c8, c5, shared)}
+	return self
+end
 
 function m.fromOrientedBasePart(cframe, size, shared)
-	local c1 = (cframe*CFrame.new(size*v1)).p
-	local c2 = (cframe*CFrame.new(size*v2)).p
-	local c3 = (cframe*CFrame.new(size*v3)).p
-	local c4 = (cframe*CFrame.new(size*v4)).p
-	local c5 = (cframe*CFrame.new(size*v5)).p
-	local c6 = (cframe*CFrame.new(size*v6)).p
-	local c7 = (cframe*CFrame.new(size*v7)).p
-	local c8 = (cframe*CFrame.new(size*v8)).p
+	local c1, c2 = (cframe*CFrame.new(size*v1)).p, (cframe*CFrame.new(size*v2)).p
+	local c3, c4 = (cframe*CFrame.new(size*v3)).p, (cframe*CFrame.new(size*v4)).p
+	local c5, c6 = (cframe*CFrame.new(size*v5)).p, (cframe*CFrame.new(size*v6)).p
+	local c7, c8 = (cframe*CFrame.new(size*v7)).p, (cframe*CFrame.new(size*v8)).p
 	local self = setmetatable({}, m)
 	self.polygons = {
 		newTriangle(c3, c4, c2, shared), newTriangle(c2 ,c4 ,c1, shared),
@@ -610,6 +688,10 @@ function m.stitchPolygons(csg1, csg2)
 		end
 	end
 	return newcsg
+end
+
+function m.stitchPolygonToPoint(csg, point)
+	
 end
 
 function m:getPolygonsFacingDirection(direction)
@@ -659,19 +741,55 @@ function m:offsetVerticesFromPosition(position, maxdistance)
 			local v2 = v1[i2]
 			local pos = v2.pos
 			local dir = pos - position
-			local dist = math.clamp(maxdistance - dir.magnitude, 0, maxdistance)
-			v2.pos = pos + (dir.unit*dist)
+			v2.pos = pos + (dir.unit*math.clamp(maxdistance - dir.magnitude, 0, maxdistance))
 		end
 	end
 	return other
 end
 
-function m:offsetVerticesTowardsPosition()
-	
+function m:offsetVerticesTowardsPosition(position, mindistance)
+	local other = self:clone()
+	local polygons = other.polygons
+	for i1 = 1, #polygons do
+		local v1 = polygons[i1].vertices
+		for i2 = 1, #v1 do
+			local v2 = v1[i2]
+			local pos = v2.pos
+			local dir = position-pos
+			v2.pos = pos + (dir.unit*(dir.magnitude - mindistance))
+		end
+	end
+	return other
 end
+
+function m.mergeCSGList(list)
+	local self = setmetatable({}, m)
+	local polygons = {}
+	for i1 = 1, #list do
+		local v1 = list[i1].polygons
+		for i2 = 1, #v1 do
+			insert(polygons, v1[i2]:clone())
+		end
+	end
+	self.polygons = polygons
+	return self
+end
+
+function m.isIntersecting(csg1, csg2)
+	-- add aabb check first
+	return #((csg1:intersect(csg2)).polygons) > 0
+end
+
+function m.isPointInside(point)
+	-- count how many times a ray intersects the polyhedron from point
+end
+
+
 
 function m:scission()
 	
 end
+
+
 
 return m

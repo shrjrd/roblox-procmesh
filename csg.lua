@@ -521,50 +521,16 @@ function m.Node:build(polygons, depth)
 	end
 end
 
+
 -- Extra Functions
 
-local vec3zero = vec3()
+local vec3zero = vec3(0,0,0)
 local vec3x = vec3(1,0,0)
 local vec3y = vec3(0,1,0)
-local vec3nz = vec3(0,0,-1)
-
-
-local newVertex = m.Vertex.new
-local newPolygon = m.Polygon.new
-
-local abs = math.abs
-
-local mat3 = CFrame.new
-
-local epsilon = 1e-3
-
-
-local function FloatFuzzyEq(f1, f2, epsilon)
-	return f1 == f2 or abs(f1 - f2) <= (abs(f1) + 1) * epsilon
-end
-
-local function isCFrameAxisAligned(cf)
-	return cf.rightVector == vec3x and cf.upVector == vec3y and cf.lookVector == vec3nz
-end
-
-
-local function newTriangle(a, b, c, shared)
-	local polygon = newPolygon({newVertex(a,vec3zero), newVertex(b,vec3zero), newVertex(c,vec3zero)}, shared)
-	local vertices = polygon.vertices
-	local normal = polygon.plane.normal
-	vertices[1].normal = normal
-	vertices[2].normal = normal
-	vertices[3].normal = normal
-	return polygon
-end
-
-function m.fromOrientedCylinder(cframe, size, shared)
-
-end
-
-function m.fromOrientedSphereMesh(cframe, size, shared)
-
-end
+local vec3z = vec3(0,0,1)
+local vec3nx = vec3(-1, 0, 0)
+local vec3ny = vec3( 0,-1, 0)
+local vec3nz = vec3( 0, 0,-1)
 
 local v1 = vec3( 1,  1, -1) -- top front right	
 local v2 = vec3( 1, -1, -1) -- bottom front right	
@@ -575,123 +541,175 @@ local v6 = vec3( 1, -1,  1) -- bottom back right
 local v7 = vec3(-1, -1,  1) -- bottom back left
 local v8 = vec3(-1,  1,  1) -- top back left
 
+local newVertex = m.Vertex.new
+local newPolygon = m.Polygon.new
+
+local abs = math.abs
+local sin = math.sin
+local cos = math.cos
+local pi = math.pi
+
+local mat3 = CFrame.new
+
+local epsilon = 1e-3
+
+
+
+local function FloatFuzzyEq(f1, f2, epsilon)
+	return f1 == f2 or abs(f1 - f2) <= (abs(f1) + 1) * epsilon
+end
+
+local function isCFrameAxisAligned(cf)
+	return (cf.rightVector == vec3x and cf.upVector == vec3y and cf.lookVector == vec3nz)
+end
+
+local function newTriangle(a, b, c, shared)
+	local polygon = newPolygon({newVertex(a,vec3zero), newVertex(b,vec3zero), newVertex(c,vec3zero)}, shared)
+	local vertices, normal = polygon.vertices, polygon.plane.normal
+	vertices[1].normal, vertices[2].normal, vertices[3].normal = normal, normal, normal
+	return polygon
+end
+
+function m.fromAxisAlignedCylinder(position, size, shared)
+	
+end
+
+function m.fromOrientedCylinder(cframe, size, shared)
+	local segments = 24
+	local a, b = cframe*CFrame.new(vec3nx*size), cframe*CFrame.new(vec3x*size) -- bottom, top of cylinder
+	local ap, bp, sy, sz = a.p, b.p, size.y, size.z
+	local polygons = {}
+	for i = 0, segments - 1 do
+		local theta = i*(2*pi)/segments;
+		local v1 = (a*CFrame.new(0, sy*cos(theta), sz*sin(theta))).p
+		local v2 = (b*CFrame.new(0, sy*cos(theta), sz*sin(theta))).p
+		theta = (i + 1)*(2*pi)/segments
+		local v3 = (a*CFrame.new(0, sy*cos(theta), sz*sin(theta))).p
+		local v4 = (b*CFrame.new(0, sy*cos(theta), sz*sin(theta))).p
+		insert(polygons, newTriangle(v4, v2, v1, shared))
+		insert(polygons, newTriangle(v3, v4, v1, shared))
+		insert(polygons, newTriangle(v2, v4, bp, shared))
+		insert(polygons, newTriangle(v3, v1 ,ap, shared))
+	end
+	return setmetatable({["polygons"] = polygons}, m)
+end
+
+function m.fromAxisAlignedSphereMesh(position, size, shared)
+	
+end
+
+function m.fromOrientedSphereMesh(cframe, size, shared)
+
+end
+
+function m.fromSphere(position, radius, shared)
+	
+end
+
 function m.fromAxisAlignedCornerWedge(position, size, shared)
 	local c1 = (position + (size*v1)).p
 	local c2, c3 = (position + (size*v2)).p, (position + (size*v3)).p
 	local c6, c7 = (position + (size*v6)).p, (position + (size*v7)).p
-	local self = setmetatable({}, m)
-	self.polygons = {
-		newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
-		newTriangle(c3, c1, c2, shared), newTriangle(c6, c2, c1, shared),
-		newTriangle(c6, c1, c7, shared), newTriangle(c3, c7, c1, shared)}
-	return self
+	return setmetatable(
+		{
+			["polygons"] = {
+				newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
+				newTriangle(c3, c1, c2, shared), newTriangle(c6, c2, c1, shared),
+				newTriangle(c6, c1, c7, shared), newTriangle(c3, c7, c1, shared)
+			}
+		}, 
+		m
+	)
 end
 
 function m.fromOrientedCornerWedge(cframe, size, shared) 
 	local c1 = (cframe*CFrame.new(size*v1)).p
 	local c2, c3 = (cframe*CFrame.new(size*v2)).p, (cframe*CFrame.new(size*v3)).p
 	local c6, c7 = (cframe*CFrame.new(size*v6)).p, (cframe*CFrame.new(size*v7)).p
-	local self = setmetatable({}, m)
-	self.polygons = {
-		newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
-		newTriangle(c3, c1, c2, shared), newTriangle(c6, c2, c1, shared),
-		newTriangle(c6, c1, c7, shared), newTriangle(c3, c7, c1, shared)}
-	return self
+	return setmetatable(
+		{
+			["polygons"] = {
+				newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
+				newTriangle(c3, c1, c2, shared), newTriangle(c6, c2, c1, shared),
+				newTriangle(c6, c1, c7, shared), newTriangle(c3, c7, c1, shared)
+			}
+		}, 
+		m
+	)
 end
 
 function m.fromAxisAlignedWedge(position, size, shared)
 	local c2, c3 = position + (size*v2), position + (size*v3)
 	local c5, c6 = position + (size*v5), position + (size*v6)
 	local c7, c8 = position + (size*v7), position + (size*v8)
-	local self = setmetatable({}, m)
-	self.polygons = {
-		newTriangle(c2, c5, c6, shared), newTriangle(c7, c8, c3, shared),
-		newTriangle(c6, c5, c7, shared), newTriangle(c7, c5, c8, shared),
-		newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
-		newTriangle(c2, c3, c5, shared), newTriangle(c3, c8, c5, shared)}
-	return self
+	return setmetatable(
+		{
+			["polygons"] = {
+				newTriangle(c2, c5, c6, shared), newTriangle(c7, c8, c3, shared),
+				newTriangle(c6, c5, c7, shared), newTriangle(c7, c5, c8, shared),
+				newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
+				newTriangle(c2, c3, c5, shared), newTriangle(c3, c8, c5, shared)
+			}
+		}, 
+		m
+	)
 end
 
 function m.fromOrientedWedge(cframe, size, shared) 
 	local c2, c3 = (cframe*CFrame.new(size*v2)).p, (cframe*CFrame.new(size*v3)).p
 	local c5, c6 = (cframe*CFrame.new(size*v5)).p, (cframe*CFrame.new(size*v6)).p
 	local c7, c8 = (cframe*CFrame.new(size*v7)).p, (cframe*CFrame.new(size*v8)).p
-	local self = setmetatable({}, m)
-	self.polygons = {
-		newTriangle(c2, c5, c6, shared), newTriangle(c7, c8, c3, shared),
-		newTriangle(c6, c5, c7, shared), newTriangle(c7, c5, c8, shared),
-		newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
-		newTriangle(c2, c3, c5, shared), newTriangle(c3, c8, c5, shared)}
-	return self
+	return setmetatable(
+		{
+			["polygons"] = {
+				newTriangle(c2, c5, c6, shared), newTriangle(c7, c8, c3, shared),
+				newTriangle(c6, c5, c7, shared), newTriangle(c7, c5, c8, shared),
+				newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
+				newTriangle(c2, c3, c5, shared), newTriangle(c3, c8, c5, shared)
+			}
+		}, 
+		m
+	)
 end
 
-function m.fromAxisAlignedBasePart(position, size, shared)
+function m.fromAxisAlignedBlock(position, size, shared)
 	local c1, c2 = position + (size*v1), position + (size*v2)
 	local c3, c4 = position + (size*v3), position + (size*v4)
 	local c5, c6 = position + (size*v5), position + (size*v6)
 	local c7, c8 = position + (size*v7), position + (size*v8)
-	local self = setmetatable({}, m)
-	self.polygons = {
-		newTriangle(c3, c4, c2, shared), newTriangle(c2 ,c4 ,c1, shared),
-		newTriangle(c1, c5, c2, shared), newTriangle(c2, c5, c6, shared),
-		newTriangle(c6, c5, c7, shared), newTriangle(c7, c5, c8, shared),
-		newTriangle(c8, c4, c7, shared), newTriangle(c7, c4, c3, shared),
-		newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
-		newTriangle(c4, c8, c1, shared), newTriangle(c1, c8, c5, shared)}
-	return self
+	return setmetatable(
+		{
+			["polygons"] = {
+				newTriangle(c3, c4, c2, shared), newTriangle(c2 ,c4 ,c1, shared),
+				newTriangle(c1, c5, c2, shared), newTriangle(c2, c5, c6, shared),
+				newTriangle(c6, c5, c7, shared), newTriangle(c7, c5, c8, shared),
+				newTriangle(c8, c4, c7, shared), newTriangle(c7, c4, c3, shared),
+				newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
+				newTriangle(c4, c8, c1, shared), newTriangle(c1, c8, c5, shared)
+			}
+		}, 
+		m
+	)
 end
 
-function m.fromOrientedBasePart(cframe, size, shared)
+function m.fromOrientedBlock(cframe, size, shared)
 	local c1, c2 = (cframe*CFrame.new(size*v1)).p, (cframe*CFrame.new(size*v2)).p
 	local c3, c4 = (cframe*CFrame.new(size*v3)).p, (cframe*CFrame.new(size*v4)).p
 	local c5, c6 = (cframe*CFrame.new(size*v5)).p, (cframe*CFrame.new(size*v6)).p
 	local c7, c8 = (cframe*CFrame.new(size*v7)).p, (cframe*CFrame.new(size*v8)).p
-	local self = setmetatable({}, m)
-	self.polygons = {
-		newTriangle(c3, c4, c2, shared), newTriangle(c2 ,c4 ,c1, shared),
-		newTriangle(c1, c5, c2, shared), newTriangle(c2, c5, c6, shared),
-		newTriangle(c6, c5, c7, shared), newTriangle(c7, c5, c8, shared),
-		newTriangle(c8, c4, c7, shared), newTriangle(c7, c4, c3, shared),
-		newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
-		newTriangle(c4, c8, c1, shared), newTriangle(c1, c8, c5, shared)}
-	return self
-end
-
-function m.stitchPolygons(csg1, csg2)
-	local polygons1, polygons2 = csg1.polygons, csg2.polygons
-	local newcsg
-	for i = 1, #polygons1 do
-		local polygon1, polygon2 = polygons1[i], polygons2[i]
-		local vertices1, vertices2 = polygon1.vertices, polygon2.vertices
-		local d = ((vertices1[1].pos - vertices2[1].pos).unit):Dot(polygon1.plane.normal)
-		if FloatFuzzyEq(d, 0, epsilon) then
-		elseif d < 0 then
-			local polygons = {polygon1:clone(), polygon2:clone()}
-			polygons[1]:flip()
-			for i1 = 1, #vertices1 do
-				local i2 = (i1 == #vertices1 and 1) or i1 + 1
-				local midA, midB = vertices2[i1].pos, vertices1[i2].pos
-				insert(polygons, newTriangle(midA, vertices1[i1].pos, midB))
-				insert(polygons, newTriangle(midA, midB, vertices2[i2].pos))
-			end
-			newcsg = (newcsg and newcsg:union(setmetatable({["polygons"] = polygons}, m))) or setmetatable({["polygons"] = polygons}, m)
-		elseif d > 0 then
-			local polygons = {polygon1:clone(), polygon2:clone()}
-			polygons[2]:flip()
-			for i1 = 1, #vertices1 do
-				local i2 = (i1 == #vertices1 and 1) or i1 + 1
-				local midA, midB = vertices2[i1].pos, vertices1[i2].pos
-				insert(polygons, newTriangle(midB, vertices1[i1].pos, midA))
-				insert(polygons, newTriangle(vertices2[i2].pos, midB, midA))
-			end
-			newcsg = (newcsg and newcsg:union(setmetatable({["polygons"] = polygons}, m))) or setmetatable({["polygons"] = polygons}, m)
-		end
-	end
-	return newcsg
-end
-
-function m.stitchPolygonToPoint(csg, point)
-	
+	return setmetatable(
+		{
+			["polygons"] = {
+				newTriangle(c3, c4, c2, shared), newTriangle(c2 ,c4 ,c1, shared),
+				newTriangle(c1, c5, c2, shared), newTriangle(c2, c5, c6, shared),
+				newTriangle(c6, c5, c7, shared), newTriangle(c7, c5, c8, shared),
+				newTriangle(c8, c4, c7, shared), newTriangle(c7, c4, c3, shared),
+				newTriangle(c3, c2, c7, shared), newTriangle(c7, c2, c6, shared),
+				newTriangle(c4, c8, c1, shared), newTriangle(c1, c8, c5, shared)
+			}
+		}, 
+		m
+	)
 end
 
 function m:getPolygonsFacingDirection(direction)
@@ -762,6 +780,77 @@ function m:offsetVerticesTowardsPosition(position, mindistance)
 	return other
 end
 
+function m.sewPolygons(csg1, csg2)
+	local polygons1, polygons2 = csg1.polygons, csg2.polygons
+	local newcsg = nil
+	for i = 1, #polygons1 do
+		local polygon1, polygon2 = polygons1[i], polygons2[i]
+		local vertices1, vertices2 = polygon1.vertices, polygon2.vertices
+		local d = ((vertices1[1].pos - vertices2[1].pos).unit):Dot(polygon1.plane.normal)
+		if FloatFuzzyEq(d, 0, epsilon) then
+		elseif d < 0 then
+			local polygons = {polygon1:clone(), polygon2:clone()}
+			polygons[1]:flip()
+			for i1 = 1, #vertices1 do
+				local i2 = (i1 == #vertices1 and 1) or i1 + 1
+				local midA, midB = vertices2[i1].pos, vertices1[i2].pos
+				insert(polygons, newTriangle(midA, vertices1[i1].pos, midB))
+				insert(polygons, newTriangle(midA, midB, vertices2[i2].pos))
+			end
+			newcsg = (newcsg and newcsg:union(setmetatable({["polygons"] = polygons}, m))) or setmetatable({["polygons"] = polygons}, m)
+		elseif d > 0 then
+			local polygons = {polygon1:clone(), polygon2:clone()}
+			polygons[2]:flip()
+			for i1 = 1, #vertices1 do
+				local i2 = (i1 == #vertices1 and 1) or i1 + 1
+				local midA, midB = vertices2[i1].pos, vertices1[i2].pos
+				insert(polygons, newTriangle(midB, vertices1[i1].pos, midA))
+				insert(polygons, newTriangle(vertices2[i2].pos, midB, midA))
+			end
+			newcsg = (newcsg and newcsg:union(setmetatable({["polygons"] = polygons}, m))) or setmetatable({["polygons"] = polygons}, m)
+		end
+	end
+	return newcsg
+end
+
+function m.extrudeCSGToPoint(csg, point)
+	local polygons = csg.polygons
+	local newcsg = nil
+	for i = 1, #polygons do
+		local polygon = polygons[i]
+		local verts = polygon.vertices
+		local d = polygon.plane.normal:Dot((point-verts[1].pos))
+		if FloatFuzzyEq(d, 0, epsilon) then
+		elseif d < 0 then
+			local polys = {polygon:clone()}
+			for i1 = 1, #verts do
+				insert(polys, newTriangle(point, verts[(i1 == #verts and 1) or i1 + 1].pos, verts[i1].pos))
+			end
+			newcsg = (newcsg and newcsg:union(setmetatable({["polygons"] = polys}, m))) or setmetatable({["polygons"] = polys}, m)
+		elseif d > 0 then
+			local polys = {polygon:clone()}
+			polys[1]:flip()
+			for i1 = 1, #verts do
+				insert(polys, newTriangle(verts[i1].pos, verts[(i1 == #verts and 1) or i1 + 1].pos, point))
+			end
+			newcsg = (newcsg and newcsg:union(setmetatable({["polygons"] = polys}, m))) or setmetatable({["polygons"] = polys}, m)
+		end
+	end
+	return newcsg
+end
+
+function m.extrudeCSGTowardsPoint(csg, point, distance)
+	
+end
+
+function m.extrudeCSGFromPoint(csg, point, distance)
+	
+end
+
+function m.extrudeCSGFromOffset(csg, offset)
+
+end
+
 function m.mergeCSGList(list)
 	local self = setmetatable({}, m)
 	local polygons = {}
@@ -780,14 +869,8 @@ function m.isIntersecting(csg1, csg2)
 	return #((csg1:intersect(csg2)).polygons) > 0
 end
 
-function m.isPointInside(point)
-	-- count how many times a ray intersects the polyhedron from point
-end
-
-
-
 function m:scission()
-	
+	--return disconnected peices of csg into seperate csg objects
 end
 
 

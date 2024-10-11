@@ -18,6 +18,12 @@ extrusion
 
 "scissioning" to seperate disconnected pieces of a mesh
 
+replace lovr mat4 usage
+
+support for importing meshes
+
+example place file
+
 
 # solids
 
@@ -29,13 +35,13 @@ The module can be used to create some geometric primitives from scratch, and to 
 solids = require('solids')
 cube_solid = solids.cube()
 
-function lovr.draw(pass)
+function lo.draw(pass)
   cube_solid:draw(pass, -1, 1, -2)
   cube_solid:draw(pass, mat4(1, 1, -2,  math.pi / 4, 0, 1, 0))
 end
 ```
 
-The advantage over LÖVR built-in primitives is ability to manipulate the mesh before rendering. The disadvantage is that UV maps are not computed, so textures and surface shader effects won't work with them.
+~~The advantage over LÖ built-in primitives is ability to manipulate the mesh before rendering.~~ The disadvantage is that UV maps are not computed, so textures and surface shader effects won't work with them.
 
 The `solid` primitive stores the geometry information in a table:
 ```Lua
@@ -104,9 +110,9 @@ Initialize a blank object containing no vertices or indices.
 
 Construct a *solid* representation from nested list of vertices and list of indices. If indices are not provided the vertices are assumed to be in sequential order.
 
-#### solids.fromModel(model)
+#### ~~solids.fromModel(model)~~
 
-Use LOVR's internal model structure (which can be loaded from a file) to initialize the solid. This is a lossy operation as only the triangle geometry will be preserved. In particular the original normals would not be preserved and they are replaced by computed normals.
+~~Use LOVR's internal model structure (which can be loaded from a file) to initialize the solid. This is a lossy operation as only the triangle geometry will be preserved. In particular the original normals would not be preserved and they are replaced by computed normals.~~
 
 #### solids.fromCSG(csg)
 
@@ -244,7 +250,7 @@ end
 
 Constructive Solid Geometry is a technique of modeling 3D shapes by adding, subtracting and intersecting meshes. The csg library is implementation of CSG algorithms using efficient binary space partitioning.
 
-The algorithm was originally constructed by Evan Wallace as JS library and ported to Lua by Tobias Teleman. This codebase fixes and improves on Lua code and adapts it to LOVR's data structures by using `lovr.math` vectors. The result can be used in LOVR once the *CSG* object is converted back to *solid* object.
+The algorithm was originally constructed by Evan Wallace as JS library and ported to Lua by Tobias Teleman. This codebase fixes and improves on Lua code ~~and adapts it to LOVR's data structures by using `lovr.math` vectors~~. The result can be used ~~in LOVR~~ once the *CSG* object is converted back to *solid* object.
 
 
 ```Lua

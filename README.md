@@ -4,11 +4,19 @@ The intended use is for constructing low-polygon 3D meshes that can then be dyna
 
 ~~Library is designed to be used within [LÖVR](https://github.com/bjornbytes/lovr) framework.~~ Uses Roblox's Vector3 and CFrame classes. With simple substitution of vector and mesh data structures the code could be used elsewhere. Libraries have no inter-dependencies so they can be used separately.
 
-# roblox-procmesh notes
+# notes
 
 The only way to "render" a mesh in Roblox is with WedgeParts, ImageLabels, or EditableMeshes.
 
 Roblox's :BulkMoveTo() is the best way to position a mesh of WedgeParts, alternatively you can weld all the parts to a base/root part.
+
+The CSG operations only work on closed 3D meshes. Ex: Unioning a cube touching a flat quad will be missing some polygons infront/behind the plane
+
+TODO:
+
+extrusion
+
+"scissioning" to seperate disconnected pieces of a mesh
 
 
 # solids

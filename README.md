@@ -2,7 +2,7 @@ The repository is a collection of Lua libraries for creating triangle meshes fro
 
 The intended use is for constructing low-polygon 3D meshes that can then be dynamically adapted during runtime. It works well with Lua's interpreted nature, and enables iterative 3D modeling in live-coding fashion.
 
-Library is designed to be used within [LÖVR](https://github.com/bjornbytes/lovr) framework. With simple substitution of vector and mesh data structures the code could be used elsewhere. Libraries have no inter-dependencies so they can be used separately.
+~~Library is designed to be used within [LÖVR](https://github.com/bjornbytes/lovr) framework. With simple substitution of vector and mesh data structures the code could be used elsewhere. Libraries have no inter-dependencies so they can be used separately.~~
 
 # solids
 
@@ -115,7 +115,7 @@ convex_hull = solids.convexHull(point_cloud)
 All the operations are immutable; they preserve the originals while creating and returning the new solid objects. The only exception is `updateNormals()` which modifies the solid it is called upon.
 
 #### solid:transform(transform, side_filter)
-Used to displace, rotate or scale mesh vertices by applying Mat4 parameter to each. If `side_filter` table is specified, only vertices with indices listed in this table will be affected.
+Used to displace, rotate or scale mesh vertices by applying ~~Mat4~~ parameter to each. If `side_filter` table is specified, only vertices with indices listed in this table will be affected.
 
 ```Lua
 cube_solid = solids.cube()
@@ -167,11 +167,11 @@ This operation is best done after all vertex manipulations are done. It is autom
 
 Creates a solid in which triangles have the flipped vertex order (opposite winding). This reverses the face normals.
 
-#### solid:draw(pass, ...)
+~~#### solid:draw(pass, ...)~~
 
-Used to render the solid mesh inside the pass. Optional transform arguments can be supplied as mat4 object or as set of numerical values; any other arguments supported by `Pass:mesh()` can also be used (start, count, instances).
+~~Used to render the solid mesh inside the pass. Optional transform arguments can be supplied as mat4 object or as set of numerical values; any other arguments supported by `Pass:mesh()` can also be used (start, count, instances).~~
 
-The function automatically computes normals and constructs the vertex and index buffers needed for rendering the mesh.
+~~The function automatically computes normals and constructs the vertex and index buffers needed for rendering the mesh.~~
 
 ```Lua
 sphere = solids.sphere(2) -- be careful with subdivisions > 4 as geometry count explodes
@@ -218,9 +218,9 @@ for vi, _ in pairs(graph[2]) do
 end
 ```
 
-#### solid:debugDraw(pass, ...)
+~~#### solid:debugDraw(pass, ...)~~
 
-Visualizes the solid shape in a wireframe mode, together with face normals. This is useful for inspection of meshes during development.
+~~Visualizes the solid shape in a wireframe mode, together with face normals. This is useful for inspection of meshes during development.~~
 
 
 # csg

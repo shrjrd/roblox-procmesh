@@ -973,7 +973,7 @@ function m:scission()
 		local NewPolygons = {}
 		for i2 = #ClonedPolygons, 1, -1 do
 			local Polygon = ClonedPolygons[i2]
-			if not PolygonHasDifferingVertices(Polygon, Group) then
+			if not PolygonHasDifferingVertices(Polygon.vertices, Group) then
 				insert(NewPolygons, Polygon)
 				remove(ClonedPolygons, i2)
 			end

@@ -552,7 +552,19 @@ local cf = CFrame.new
 
 local epsilon = 1e-3
 
-
+local function Vector3FuzzyEq(v1, v2)
+	local v1x, v2x = v1.X, v2.X
+	if v1x == v2x or abs(v1x - v2x) <= (abs(v1x) + 1) * epsilon then
+		local v1y, v2y = v1.Y, v2.Y
+		if v1y == v2y or abs(v1y - v2y) <= (abs(v1y) + 1) * epsilon then
+			local v1z, v2z = v1.Z, v2.Z
+			if v1z == v2z or abs(v1z - v2z) <= (abs(v1z) + 1) * epsilon then
+				return true
+			end
+		end
+	end
+	return false
+end
 
 local function FloatFuzzyEq(f1, f2, epsilon)
 	return f1 == f2 or abs(f1 - f2) <= (abs(f1) + 1) * epsilon
@@ -887,17 +899,117 @@ function m.isIntersecting(csg1, csg2)
 	return #((csg1:intersect(csg2)).polygons) > 0
 end
 
-local PlaneSize = 1e+5
-local SliceSize = vec3(PlaneSize, PlaneSize, PlaneSize)
+local PlaneSize = 1e+4 -- higher sizes will cause incorrect results
+local SliceSize = vec3(PlaneSize, PlaneSize, PlaneSize) -- (used as half size)
 function m:bisect(PlanePoint, PlaneNormal, shared)
-	local pos1, pos2 = PlanePoint + ( PlaneNormal*SliceSize), PlanePoint + (-PlaneNormal*SliceSize)
-	return 
-		self:intersect(m.fromOrientedBlock(CFrame.lookAt(pos1, pos1 + PlaneNormal), SliceSize, shared)), 
-		self:intersect(m.fromOrientedBlock(CFrame.lookAt(pos2, pos2 + PlaneNormal), SliceSize, shared))
+	local pos = PlanePoint + (PlaneNormal*SliceSize)
+	local cube = m.fromOrientedBlock(CFrame.lookAt(pos, pos + PlaneNormal), SliceSize, shared)
+	return self:intersect(cube), self:subtract(cube)
+end
+
+local function findGroup(group, v)
+	for i1 = 1, #group do
+		local g = group[i1]
+		for i2 = 1, #g do
+			if g[i2] == v or Vector3FuzzyEq(g[i2], v) then
+				return i1
+			end
+		end
+	end
+end
+
+local function PolygonHasDifferingVertices(t1, t2)
+	for i1 = 1, #t1 do
+		local v1 = t1[i1].pos
+		local Different = true
+		for i2 = 1, #t2 do
+			local v2 = t2[i2]
+			if v1 == v2 or Vector3FuzzyEq(v1, v2) then
+				Different = false
+				break
+			end
+		end
+		if Different then
+			return true
+		end
+	end
 end
 
 function m:scission()
-	--return disconnected peices of csg into seperate csg objects
+	-- floodfill vertices as a graph to locate disconnected regions
+	-- does not exclude vertices that are articulation points (single node that connects 2 regions)
+	local Polygons = self.polygons
+	local groups = {}
+	for PolygonIndex = 1, #Polygons do
+		local Polygon = Polygons[PolygonIndex]
+		local Vertices = Polygon.vertices
+		local NumVertices = #Vertices
+		for VertexIndex = 1, NumVertices do
+			local A, B = Vertices[VertexIndex].pos, Vertices[(VertexIndex % NumVertices) + 1].pos
+			local groupAi, groupBi = findGroup(groups, A), findGroup(groups, B)
+			local groupA, groupB = groups[groupAi], groups[groupBi]
+			if groupA and not groupB then
+				insert(groupA, B)
+			elseif not groupA and groupB then
+				insert(groupB, A)
+			elseif groupA and groupB then
+				if groupA ~= groupB then
+					groups[groupAi] = lappend(groupA, groupB)
+					remove(groups, groupBi)
+				end
+			else
+				insert(groups, {A, B})
+			end
+		end
+	end
+	
+	if #groups == 1 then return {self} end
+	
+	local newcsgs = {}
+
+	local ClonedPolygons = (self:clone()).polygons
+	for i1 = 1, #groups do
+		local Group = groups[i1]
+		local NewPolygons = {}
+		for i2 = #ClonedPolygons, 1, -1 do
+			local Polygon = ClonedPolygons[i2]
+			if not PolygonHasDifferingVertices(Polygon, Group) then
+				insert(NewPolygons, Polygon)
+				remove(ClonedPolygons, i2)
+			end
+		end
+		insert(newcsgs, setmetatable({["polygons"] = NewPolygons}, m))
+	end
+	
+	--[[
+	local ClonedPolygons = (self:clone()).polygons
+	local NumGroups = #groups
+	for i = 1, NumGroups do newcsgs[i] = m.new() end
+	for PolygonIndex = #ClonedPolygons, 1, -1 do -- for each polygon
+		local Polygon = ClonedPolygons[PolygonIndex]
+		local PolygonVertices = Polygon.vertices
+		local NumPolygonVertices = #PolygonVertices
+		local Different = true
+		for PolygonVertexIndex = 1, NumPolygonVertices do -- for each vertex in polygon
+			local PolygonVertex = PolygonVertices[PolygonVertexIndex].pos
+			for GroupIndex = 1, NumGroups do -- for each group
+				local Group = groups[GroupIndex]
+				for GroupVertexIndex = 1, #Group do -- for each vertex in group
+					local GroupVertex = Group[GroupVertexIndex]
+					if PolygonVertex == GroupVertex or Vector3FuzzyEq(PolygonVertex, GroupVertex) then
+						Different = false
+						insert(newcsgs[GroupIndex].polygons, Polygon)
+						remove(ClonedPolygons, PolygonIndex)
+						break -- dont check remaining vertices in group
+					end
+				end
+				if not Different then break end -- dont check remaining groups
+			end
+			if not Different then break end -- dont check remaining vertices in polygon
+		end
+	end
+	]]
+	return newcsgs
 end
 
 

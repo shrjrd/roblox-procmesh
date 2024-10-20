@@ -14,9 +14,7 @@ The CSG operations only work on closed 3D meshes. Ex: Unioning a cube touching a
 
 TODO:
 
-extrusion
-
-"scissioning" to seperate disconnected pieces of a mesh
+optimize scissioning
 
 replace lovr mat4 usage
 

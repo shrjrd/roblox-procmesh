@@ -912,12 +912,12 @@ function m:bisect(PlanePoint, PlaneNormal, shared)
 	return self:intersect(cube), self:subtract(cube)
 end
 
-local function findGroup(group, v)
-	for i1 = 1, #group do
-		local g = group[i1]
-		for i2 = 1, #g do
-			if g[i2] == v or Vector3FuzzyEq(g[i2], v) then
-				return i1
+local function findGroup(groups, value)
+	for GroupIndex = 1, #groups do
+		local group = groups[GroupIndex]
+		for ValueIndex = 1, #group do
+			if group[ValueIndex] == value or Vector3FuzzyEq(group[ValueIndex], value) then
+				return GroupIndex
 			end
 		end
 	end

@@ -507,7 +507,7 @@ function m.Node:build(polygons, depth)
 	for i, p in ipairs(polygons) do
 		self.plane:splitPolygon(p, self.polygons, self.polygons, front, back)
 	end
-	if depth > 500 then print("stack overflow") wait() return end -- stack overflow protection
+	if depth > 500 then --[[print"stack overflow"]] return end --stack overflow
 	if (#front > 0) then
 		if (not self.front) then self.front = m.Node.new() end
 		self.front:build(front, depth + 1)
@@ -520,6 +520,14 @@ end
 
 -- Extra Functions
 
+local draw = require(workspace.procmesh.draw)
+local solids = require(workspace.procmesh.solids)
+
+local function drawCSG(a)
+	local solid = solids.fromCSG(a)
+	draw.Normals(solid)
+	draw.Triangles(solid)
+end
 
 local v3x = vec3(1,0,0)
 local v3y = vec3(0,1,0)
@@ -552,6 +560,7 @@ local cf = CFrame.new
 
 local epsilon = 1e-3
 
+
 local function Vector3FuzzyEq(v1, v2)
 	local v1x, v2x = v1.X, v2.X
 	if v1x == v2x or abs(v1x - v2x) <= (abs(v1x) + 1) * epsilon then
@@ -566,7 +575,7 @@ local function Vector3FuzzyEq(v1, v2)
 	return false
 end
 
-local function FloatFuzzyEq(f1, f2, epsilon)
+local function FloatFuzzyEq(f1, f2)
 	return f1 == f2 or abs(f1 - f2) <= (abs(f1) + 1) * epsilon
 end
 
@@ -751,7 +760,7 @@ function m:getPolygonsFacingDirection(direction)
 	local polygons = other.polygons
 	for i = #polygons, 1, -1 do
 		local d = polygons[i].plane.normal:Dot(direction)
-		if d <= 0 or FloatFuzzyEq(d, 0, epsilon) then
+		if d <= 0 or FloatFuzzyEq(d, 0) then
 			remove(polygons, i)
 		end
 	end
@@ -764,7 +773,7 @@ function m:getPolygonsFacingPosition(position)
 	for i = #polygons, 1, -1 do
 		local v = polygons[i]
 		local d = v.plane.normal:Dot((position-v.vertices[1].pos))
-		if d <= 0 or FloatFuzzyEq(d, 0, epsilon) then
+		if d <= 0 or FloatFuzzyEq(d, 0) then
 			remove(polygons, i)
 		end
 	end
@@ -820,7 +829,7 @@ function m.stitch(csg1, csg2, shared)
 		local polygon1, polygon2 = polygons1[i], polygons2[i]
 		local vertices1, vertices2 = polygon1.vertices, polygon2.vertices
 		local d = ((vertices1[1].pos - vertices2[1].pos).unit):Dot(polygon1.plane.normal)
-		if FloatFuzzyEq(d, 0, epsilon) then
+		if FloatFuzzyEq(d, 0) then
 		elseif d < 0 then
 			local polygons = {polygon1:clone(), polygon2:clone()}
 			polygons[1]:flip()
@@ -852,7 +861,7 @@ function m.extrudeToPoint(csg, point, shared)
 		local polygon = polygons[i]
 		local verts = polygon.vertices
 		local d = polygon.plane.normal:Dot((point-verts[1].pos))
-		if FloatFuzzyEq(d, 0, epsilon) then
+		if FloatFuzzyEq(d, 0) then
 		elseif d < 0 then
 			local polys = {polygon:clone()}
 			for i1 = 1, #verts do
@@ -871,15 +880,16 @@ function m.extrudeToPoint(csg, point, shared)
 	return newcsg
 end
 
-function m.extrudeTowardsPosition(csg, point, distance)
+-- offset and stitch in one loop
+function m.extrudeTowardsPosition(csg, point, distance, RemoveExtrudedSurface)
+
+end
+
+function m.extrudeFromPosition(csg, point, distance, RemoveExtrudedSurface)
 	
 end
 
-function m.extrudeFromPosition(csg, point, distance)
-	
-end
-
-function m.extrudeFromDirection(csg, offset)
+function m.extrudeFromDirection(csg, offset, RemoveExtrudedSurface)
 
 end
 
@@ -892,11 +902,6 @@ function m.merge(list)
 		end
 	end
 	return setmetatable({["polygons"] = polygons}, m)
-end
-
-function m.isIntersecting(csg1, csg2)
-	-- add aabb check first
-	return #((csg1:intersect(csg2)).polygons) > 0
 end
 
 local PlaneSize = 1e+4 -- higher sizes will cause incorrect results
@@ -918,100 +923,55 @@ local function findGroup(group, v)
 	end
 end
 
-local function PolygonHasDifferingVertices(t1, t2)
-	for i1 = 1, #t1 do
-		local v1 = t1[i1].pos
-		local Different = true
-		for i2 = 1, #t2 do
-			local v2 = t2[i2]
-			if v1 == v2 or Vector3FuzzyEq(v1, v2) then
-				Different = false
-				break
-			end
-		end
-		if Different then
-			return true
-		end
-	end
-end
-
+-- floodfill vertices as a graph to locate disconnected regions
+-- does not exclude vertices that are articulation points (single node that connects regions)
 function m:scission()
-	-- floodfill vertices as a graph to locate disconnected regions
-	-- does not exclude vertices that are articulation points (single node that connects 2 regions)
 	local Polygons = self.polygons
-	local groups = {}
+	local GroupMap, groups = {}, {}
+	local NumGroups = 0
 	for PolygonIndex = 1, #Polygons do
 		local Polygon = Polygons[PolygonIndex]
 		local Vertices = Polygon.vertices
 		local NumVertices = #Vertices
+		local GroupIndex
 		for VertexIndex = 1, NumVertices do
 			local A, B = Vertices[VertexIndex].pos, Vertices[(VertexIndex % NumVertices) + 1].pos
 			local groupAi, groupBi = findGroup(groups, A), findGroup(groups, B)
 			local groupA, groupB = groups[groupAi], groups[groupBi]
 			if groupA and not groupB then
 				insert(groupA, B)
+				GroupIndex = groupAi
 			elseif not groupA and groupB then
 				insert(groupB, A)
+				GroupIndex = groupBi
 			elseif groupA and groupB then
 				if groupA ~= groupB then
 					groups[groupAi] = lappend(groupA, groupB)
 					remove(groups, groupBi)
+					NumGroups = NumGroups - 1
 				end
+				GroupIndex = groupAi
 			else
-				insert(groups, {A, B})
+				NumGroups = NumGroups + 1
+				groups[NumGroups] = {A, B} --insert(groups, {A, B})
+				GroupIndex = NumGroups
 			end
 		end
+		GroupMap[GroupIndex] = GroupMap[GroupIndex] or {}
+		insert(GroupMap[GroupIndex], PolygonIndex)
 	end
-	
-	if #groups == 1 then return {self} end
-	
+	if NumGroups == 1 then return {self} end
 	local newcsgs = {}
-
-	local ClonedPolygons = (self:clone()).polygons
-	for i1 = 1, #groups do
-		local Group = groups[i1]
-		local NewPolygons = {}
-		for i2 = #ClonedPolygons, 1, -1 do
-			local Polygon = ClonedPolygons[i2]
-			if not PolygonHasDifferingVertices(Polygon.vertices, Group) then
-				insert(NewPolygons, Polygon)
-				remove(ClonedPolygons, i2)
-			end
+	for i1 = 1, NumGroups do
+		local NewPolygons, NumPolygons = {}, 0
+		local group = GroupMap[i1]
+		for i2 = 1, #group do
+			NumPolygons = NumPolygons + 1
+			NewPolygons[NumPolygons] = Polygons[group[i2]]:clone()
 		end
-		insert(newcsgs, setmetatable({["polygons"] = NewPolygons}, m))
+		newcsgs[i1] = setmetatable({["polygons"] = NewPolygons}, m)
 	end
-	
-	--[[
-	local ClonedPolygons = (self:clone()).polygons
-	local NumGroups = #groups
-	for i = 1, NumGroups do newcsgs[i] = m.new() end
-	for PolygonIndex = #ClonedPolygons, 1, -1 do -- for each polygon
-		local Polygon = ClonedPolygons[PolygonIndex]
-		local PolygonVertices = Polygon.vertices
-		local NumPolygonVertices = #PolygonVertices
-		local Different = true
-		for PolygonVertexIndex = 1, NumPolygonVertices do -- for each vertex in polygon
-			local PolygonVertex = PolygonVertices[PolygonVertexIndex].pos
-			for GroupIndex = 1, NumGroups do -- for each group
-				local Group = groups[GroupIndex]
-				for GroupVertexIndex = 1, #Group do -- for each vertex in group
-					local GroupVertex = Group[GroupVertexIndex]
-					if PolygonVertex == GroupVertex or Vector3FuzzyEq(PolygonVertex, GroupVertex) then
-						Different = false
-						insert(newcsgs[GroupIndex].polygons, Polygon)
-						remove(ClonedPolygons, PolygonIndex)
-						break -- dont check remaining vertices in group
-					end
-				end
-				if not Different then break end -- dont check remaining groups
-			end
-			if not Different then break end -- dont check remaining vertices in polygon
-		end
-	end
-	]]
 	return newcsgs
 end
-
-
 
 return m

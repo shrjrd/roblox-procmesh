@@ -12,15 +12,19 @@ Roblox's :BulkMoveTo() is the best way to position a mesh of WedgeParts, alterna
 
 The CSG operations only work on closed 3D meshes. Ex: Unioning a cube touching a flat quad will be missing some polygons infront/behind the plane
 
+Does not use any Luau optimizations, for compatibility in older versions of Roblox pre 2019.
+
 TODO:
 
-optimize scissioning
+finish extrusion functions
 
-replace lovr mat4 usage
+place file with examples
+
+replace lovr mat4 usage in solids.pyramid and solid.transform
 
 support for importing meshes
 
-example place file
+general optimizations
 
 
 # solids

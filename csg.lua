@@ -519,16 +519,6 @@ function m.Node:build(polygons, depth)
 end
 
 -- Extra Functions
-
-local draw = require(workspace.procmesh.draw)
-local solids = require(workspace.procmesh.solids)
-
-local function drawCSG(a)
-	local solid = solids.fromCSG(a)
-	draw.Normals(solid)
-	draw.Triangles(solid)
-end
-
 local v3x = vec3(1,0,0)
 local v3y = vec3(0,1,0)
 local v3z = vec3(0,0,1)
@@ -893,12 +883,14 @@ function m.extrudeFromDirection(csg, offset, RemoveExtrudedSurface)
 
 end
 
-function m.merge(list)
+local function merge(list)
 	local polygons = {}
+	local NumPolygons = 0
 	for i1 = 1, #list do
 		local v1 = list[i1].polygons
 		for i2 = 1, #v1 do
-			insert(polygons, v1[i2]:clone())
+			NumPolygons = NumPolygons + 1
+			polygons[NumPolygons] = v1[i2]:clone()
 		end
 	end
 	return setmetatable({["polygons"] = polygons}, m)
@@ -912,23 +904,21 @@ function m:bisect(PlanePoint, PlaneNormal, shared)
 	return self:intersect(cube), self:subtract(cube)
 end
 
-local function findGroup(groups, value)
-	for GroupIndex = 1, #groups do
-		local group = groups[GroupIndex]
-		for ValueIndex = 1, #group do
-			if group[ValueIndex] == value or Vector3FuzzyEq(group[ValueIndex], value) then
-				return GroupIndex
+local function findGroup(group, v)
+	for i1 = 1, #group do
+		local g = group[i1]
+		for i2 = 1, #g do
+			if g[i2] == v or Vector3FuzzyEq(g[i2], v) then
+				return i1
 			end
 		end
 	end
 end
 
--- floodfill vertices as a graph to locate disconnected regions
--- does not exclude vertices that are articulation points (single node that connects regions)
 function m:scission()
 	local Polygons = self.polygons
-	local GroupMap, groups = {}, {}
-	local NumGroups = 0
+	local PolygonGroups = {}
+	local groups = {}
 	for PolygonIndex = 1, #Polygons do
 		local Polygon = Polygons[PolygonIndex]
 		local Vertices = Polygon.vertices
@@ -940,37 +930,60 @@ function m:scission()
 			local groupA, groupB = groups[groupAi], groups[groupBi]
 			if groupA and not groupB then
 				insert(groupA, B)
+
 				GroupIndex = groupAi
 			elseif not groupA and groupB then
 				insert(groupB, A)
+				
 				GroupIndex = groupBi
 			elseif groupA and groupB then
 				if groupA ~= groupB then
-					groups[groupAi] = lappend(groupA, groupB)
+					for i = 1, #groupB do 
+						insert(groupA, groupB[i])
+					end
 					remove(groups, groupBi)
-					NumGroups = NumGroups - 1
+					
+					local polygonsA, polygonsB = PolygonGroups[groupAi], PolygonGroups[groupBi]
+					if polygonsA then
+						for i = 1, #polygonsB do 
+							insert(polygonsA, polygonsB[i]) 
+						end
+					else
+						PolygonGroups[groupAi] = polygonsB
+					end
+					remove(PolygonGroups, groupBi)
+					
 				end
+				
 				GroupIndex = groupAi
 			else
-				NumGroups = NumGroups + 1
-				groups[NumGroups] = {A, B} --insert(groups, {A, B})
-				GroupIndex = NumGroups
+				insert(groups, {A, B})
+			
+				GroupIndex = #groups
 			end
 		end
-		GroupMap[GroupIndex] = GroupMap[GroupIndex] or {}
-		insert(GroupMap[GroupIndex], PolygonIndex)
+		
+		local PolygonGroup = PolygonGroups[GroupIndex]
+		if not PolygonGroup then
+			PolygonGroups[GroupIndex] = {PolygonIndex}
+		else
+			insert(PolygonGroup, PolygonIndex)
+		end
+		
 	end
-	if NumGroups == 1 then return {self} end
+
+	if #groups == 1 then return {self} end
+
 	local newcsgs = {}
-	for i1 = 1, NumGroups do
-		local NewPolygons, NumPolygons = {}, 0
-		local group = GroupMap[i1]
-		for i2 = 1, #group do
-			NumPolygons = NumPolygons + 1
-			NewPolygons[NumPolygons] = Polygons[group[i2]]:clone()
+	
+	for i1, v1 in ipairs(PolygonGroups) do
+		local NewPolygons = {}
+		for i2, v2 in ipairs(v1) do
+			NewPolygons[i2] = Polygons[v2]:clone()
 		end
 		newcsgs[i1] = setmetatable({["polygons"] = NewPolygons}, m)
 	end
+	
 	return newcsgs
 end
 

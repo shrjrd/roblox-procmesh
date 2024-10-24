@@ -16,13 +16,9 @@ Does not use any Luau optimizations, for compatibility in older versions of Robl
 
 TODO:
 
-finish extrusion functions
-
 place file with examples
 
 replace lovr mat4 usage in solids.pyramid and solid.transform
-
-support for importing meshes
 
 general optimizations
 

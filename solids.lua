@@ -138,7 +138,7 @@ end
 
 
 --- Cast a ray and return list of intersection points with the solid
--- uses Möller-Trumbore algorithm
+-- uses MÃ¶ller-Trumbore algorithm
 function m:raycast(start, stop, doublesided)
 	if self.normals_dirty then self:updateNormals() end
 	local intersections = {}
@@ -1391,5 +1391,58 @@ function m.octasphere(subdivisions)
 	return solid
 end
 
+-- https://devforum.roblox.com/t/roblox-mesh-format/326114
+function m.fromMeshV1(input)
+	-- input can be a string or table of strings
+	input = (type(input) == "table" and table.concat(input, "")) or input
+	
+	local vlist, ilist = {}, {}
+	local vnum, count = 0, 0
+	
+	for str in string.gmatch(input, "%[.-%]", 1, true) do
+		count = count + 1
+		local c = count % 3 
+		if c == 1 then  --[vx, vy, vz]
+			local v = str:gsub("%[", ""):gsub("%]", "")
+			vnum = vnum + 1
+			local vx = tonumber(string.sub(v, 1, v:find(",") - 1))
+			v = string.sub(v, v:find(",") + 1, v:len())
+			local vy = tonumber(string.sub(v, 1, v:find(",") - 1))
+			v = string.sub(v, v:find(",") + 1, v:len())
+			local vz = tonumber(v)
+			vlist[vnum], ilist[vnum] = {vx, vy, vz}, vnum
+		elseif c == 2 then --[nx, ny, nz]
+			local n = str:gsub("%[", ""):gsub("%]", "")
+			local nx = tonumber(string.sub(n, 1, n:find(",") - 1))
+			n = string.sub(n, n:find(",") + 1, n:len())
+			local ny = tonumber(string.sub(n, 1, n:find(",") - 1))
+			n = string.sub(n, n:find(",") + 1, n:len())
+			local nz = tonumber(n)
+			local v = vlist[vnum]
+			v[4], v[5], v[6] = nx, ny, nz
+		elseif c == 0 then --[u,v,w]
+			local v = vlist[vnum]
+		
+		end
+	end
+	
+	return m.fromVertices(vlist, ilist)
+end
+
+function m:toMeshV1()
+	local vlist, ilist = self.vlist, self.ilist
+	
+	local str = ""
+	
+	for i = 1, #ilist do
+		local v = vlist[ilist[i]]
+		local vertex = "["..v[1]..","..v[2]..","..v[3].."]"
+		local normal = "["..v[4]..","..v[5]..","..v[6].."]"
+		local uv = "[0,0,0]" --not used in procmesh
+		str = str..vertex..normal..uv
+	end
+	
+	return str
+end
 
 return m

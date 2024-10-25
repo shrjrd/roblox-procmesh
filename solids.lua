@@ -605,13 +605,13 @@ end
 
 --- Construct a solid from LOVR's Model object.
 function m.fromModel(model)
-	assert(type(model) == 'userdata' and model.getTriangles, 'unsupported input')
-	local vlist_flat, ilist = model:getTriangles()
-	local vlist = {}
-	for i = 1, #vlist_flat, 3 do
-		insert(vlist, {vlist_flat[i], vlist_flat[i+1], vlist_flat[i+2]})
-	end
-	return m.fromVertices(vlist, ilist)
+	--assert(type(model) == 'userdata' and model.getTriangles, 'unsupported input')
+	--local vlist_flat, ilist = model:getTriangles()
+	--local vlist = {}
+	--for i = 1, #vlist_flat, 3 do
+	--	insert(vlist, {vlist_flat[i], vlist_flat[i+1], vlist_flat[i+2]})
+	--end
+	--return m.fromVertices(vlist, ilist)
 end
 
 
@@ -1008,11 +1008,11 @@ function m.cylinder(segments)
 		-- ring
 		local theta, v1, v2, v3, v4, vi1, vi2, vi3, vi4
 		theta = i * (2 * pi) / segments;
-		v1 = {0.5 * cos(theta), -0.5, 0.5 * sin(theta)}
-		v2 = {0.5 * cos(theta),  0.5, 0.5 * sin(theta)}
+		v1 = {-.5, .5 * cos(theta), .5 * sin(theta)}
+		v2 = { .5, .5 * cos(theta), .5 * sin(theta)}
 		theta = (i + 1) * (2 * pi) / segments;
-		v3 = {0.5 * cos(theta), -0.5, 0.5 * sin(theta)}
-		v4 = {0.5 * cos(theta),  0.5, 0.5 * sin(theta)}
+		v3 = {-.5, .5 * cos(theta), .5 * sin(theta)}
+		v4 = { .5, .5 * cos(theta), .5 * sin(theta)}
 		insert(self.vlist, v1)
 		insert(self.sides.bottom, #self.vlist)
 		insert(self.vlist, v2)
@@ -1022,14 +1022,14 @@ function m.cylinder(segments)
 		insert(self.vlist, v4)
 		insert(self.sides.top, #self.vlist)
 		vi1, vi2, vi3, vi4 = #self.vlist-3, #self.vlist-2, #self.vlist-1, #self.vlist
-		listappend(self.ilist, {vi1, vi2, vi4, vi1, vi4, vi3})
+		listappend(self.ilist, {vi4, vi2, vi1, vi3, vi4, vi1})
 		-- top and bottom self.sides
 		theta = i * (2 * pi) / segments;
-		v1 = {0.5 * cos(theta), -0.5, 0.5 * sin(theta)}
-		v2 = {0.5 * cos(theta),  0.5, 0.5 * sin(theta)}
+		v1 = {-.5, .5 * cos(theta), .5 * sin(theta)}
+		v2 = { .5, .5 * cos(theta), .5 * sin(theta)}
 		theta = (i + 1) * (2 * pi) / segments;
-		v3 = {0.5 * cos(theta), -0.5, 0.5 * sin(theta)}
-		v4 = {0.5 * cos(theta),  0.5, 0.5 * sin(theta)}
+		v3 = {-.5, .5 * cos(theta), .5 * sin(theta)}
+		v4 = { .5, .5 * cos(theta), .5 * sin(theta)}
 		insert(self.vlist, v1)
 		insert(self.sides.bottom, #self.vlist)
 		insert(self.vlist, v2)
@@ -1039,12 +1039,12 @@ function m.cylinder(segments)
 		insert(self.vlist, v4)
 		insert(self.sides.top, #self.vlist)
 		vi1, vi2, vi3, vi4 = #self.vlist-3, #self.vlist-2, #self.vlist-1, #self.vlist
-		listappend(self.ilist, {vTop, vi4, vi2, vBottom, vi1, vi3})
+		listappend(self.ilist, {vi2,vi4,vTop, vi3,vi1,vBottom})
 	end
-	insert(self.vlist, {0,  0.5, 0})
+	insert(self.vlist, {.5, 0, 0})
 	insert(self.sides.top, #self.vlist)
 	assert(vTop, #self.vlist)
-	insert(self.vlist, {0, -0.5, 0})
+	insert(self.vlist, {-.5, 0, 0})
 	insert(self.sides.bottom, #self.vlist)
 	assert(vBottom, #self.vlist)
 	return self
@@ -1371,12 +1371,14 @@ function m.octasphere(subdivisions)
 		end
 	end
 	-- create 6 faces needed for rounded cuboid (will be collapsed for a sphere and capsule)
-	local faces = {  {{0, 2}, {4, 6}, patchedges.x[1]},
-	{{1, 3}, {0, 2}, patchedges.z[1]},
-	{{4, 6}, {5, 7}, patchedges.z[1]},
-	{{5, 7}, {1, 3}, patchedges.x[1]},
-	{{4, 5}, {0, 1}, patchedges.x[#patchedges.x]},
-	{{6, 2}, {7, 3}, patchedges.x[#patchedges.x]}}
+	local faces = {  
+		{{0, 2}, {4, 6}, patchedges.x[1]},
+		{{1, 3}, {0, 2}, patchedges.z[1]},
+		{{4, 6}, {5, 7}, patchedges.z[1]},
+		{{5, 7}, {1, 3}, patchedges.x[1]},
+		{{4, 5}, {0, 1}, patchedges.x[#patchedges.x]},
+		{{6, 2}, {7, 3}, patchedges.x[#patchedges.x]}
+	}
 	for _, face in ipairs(faces) do
 		local edgeA = {face[1][1] * patchcount + face[3], face[1][2] * patchcount + face[3]}
 		local edgeB = {face[2][1] * patchcount + face[3], face[2][2] * patchcount + face[3]}
@@ -1432,17 +1434,19 @@ end
 function m:toMeshV1()
 	local vlist, ilist = self.vlist, self.ilist
 	
-	local str = ""
+	local line1 = "version 1.00"
+	local line2 = tostring(#ilist/3) --num of triangles
+	local line3 = ""
 	
 	for i = 1, #ilist do
 		local v = vlist[ilist[i]]
 		local vertex = "["..v[1]..","..v[2]..","..v[3].."]"
 		local normal = "["..v[4]..","..v[5]..","..v[6].."]"
 		local uv = "[0,0,0]" --not used in procmesh
-		str = str..vertex..normal..uv
+		line3 = line3..vertex..normal..uv
 	end
 	
-	return str
+	return line3
 end
 
 return m

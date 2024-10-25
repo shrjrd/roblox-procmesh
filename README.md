@@ -10,7 +10,7 @@ The only way to "render" a mesh in Roblox is with WedgeParts, ImageLabels, or Ed
 
 Roblox's :BulkMoveTo() is the best way to position a mesh of WedgeParts, alternatively you can weld all the parts to a base/root part.
 
-The CSG operations only work on closed 3D meshes. Ex: Unioning a cube touching a flat quad will be missing some polygons infront/behind the plane
+The CSG operations are designed for closed 3D meshes. Ex: Unioning a cube touching a flat quad will be missing some polygons infront/behind the quad
 
 Does not use any Luau optimizations, for compatibility in older versions of Roblox pre 2019.
 

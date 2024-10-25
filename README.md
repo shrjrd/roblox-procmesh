@@ -14,6 +14,19 @@ The CSG operations only work on closed 3D meshes. Ex: Unioning a cube touching a
 
 Does not use any Luau optimizations, for compatibility in older versions of Roblox pre 2019.
 
+Main Additions:
+
+importing / exporting roblox meshes
+
+extrusion
+
+scission
+
+bisecting
+
+constructors for base shapes
+
+
 TODO:
 
 place file with examples

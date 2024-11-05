@@ -18,7 +18,7 @@ This is currently in Lua 5.1 without any Luau optimizations, for compatibility i
 
 Main Additions:
 
-recreating Roblox's CSG out of WedgeParts
+recreating Roblox's CSG out of WedgeParts (plugin only)
 
 importing / exporting roblox meshes
 

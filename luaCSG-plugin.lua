@@ -526,7 +526,7 @@ local csg do
 		for i, p in ipairs(polygons) do
 			self.plane:splitPolygon(p, self.polygons, self.polygons, front, back)
 		end
-		if depth > 10000 then print"luaCSG stack overflow" return end
+		if depth > 8000 then print"luaCSG stack overflow" return end
 		if (#front > 0) then
 			if (not self.front) then self.front = m.Node.new() end
 			self.front:build(front, depth + 1)
@@ -1012,17 +1012,26 @@ end
 
 local function recreateTableOfCSG(tbl, DeleteOriginal)
 	local NumTbl = #tbl
+	for i = NumTbl, 1 , -1 do
+		if tbl[i].ClassName ~= "UnionOperation" then
+			table.remove(tbl, i)
+		end
+	end
+	NumTbl = #tbl
+	
+	local printInterval = math.floor((NumTbl/100))
+	
 	local t0 = tick()
 	print("started recreating table of union(s)")
 	for index, instance in ipairs(tbl) do
-		if instance.ClassName == "UnionOperation" then
-			recreateCSG(instance, DeleteOriginal)
-			task.wait(1/60)
+		recreateCSG(instance, DeleteOriginal)
+		task.wait(1/60)
+		if index % printInterval == 0 then  -- dont print too often
 			print(math.floor(((index/NumTbl)*100)+.5).."%")
 		end
 	end
 	local td = tick() - t0
-	print("finished recreating union(s) in "..td.." seconds")
+	print("finished recreating "..NumTbl.." union(s) in "..td.." seconds")
 end
 
 local function outputHelpInfo()

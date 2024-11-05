@@ -56,7 +56,7 @@ function lo.draw(pass)
 end
 ```
 
-~~The advantage over LÖ built-in primitives is ability to manipulate the mesh before rendering.~~ The disadvantage is that UV maps are not computed, so textures and surface shader effects won't work with them.
+~~The advantage over LÖVR built-in primitives is ability to manipulate the mesh before rendering.~~ The disadvantage is that UV maps are not computed, so textures and surface shader effects won't work with them.
 
 The `solid` primitive stores the geometry information in a table:
 ```Lua

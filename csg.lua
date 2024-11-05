@@ -609,8 +609,98 @@ function m.fromOrientedSphereMesh(cframe, size, shared)
 
 end
 
-function m.fromSphere(position, radius, shared)
+local sqrt = math.sqrt
+function m.fromSphere(position, radius, shared) --radius is math.min(PartSize.x, PartSize.y, PartSize.z)
+	local subdivisions = 2
+	local phi = (1 + sqrt(5)) / 2
+	vlist = {
+		{ -1,  phi, 0 },
+		{  1,  phi, 0 },
+		{ -1, -phi, 0 },
+		{  1, -phi, 0 },
+
+		{ 0, -1,  phi },
+		{ 0,  1,  phi },
+		{ 0, -1, -phi },
+		{ 0,  1, -phi },
+
+		{  phi, 0, -1 },
+		{  phi, 0,  1 },
+		{ -phi, 0, -1 },
+		{ -phi, 0,  1 }
+	}
+	ilist = {
+		1, 12, 6,  1, 6, 2,  1, 2, 8,  1, 8, 11,  1, 11, 12,
+		2, 6, 10,  6, 12, 5,  12, 11, 3,  11, 8, 7,  8, 2, 9,
+		4, 10, 5,  4, 5, 3,  4, 3, 7,  4, 7, 9,  4, 9, 10,
+		5, 10, 6,  3, 5, 12,  7, 3, 11,  9, 7, 8,  10, 9, 2
+	}
 	
+	-- Cache vertex splits to avoid duplicates
+	local splits = {}
+	-- Splits self.vlist i and j, creating a new vertex and returning the index
+	local function split(i, j)
+		local key = i < j and (i .. ',' .. j) or (j .. ',' .. i)
+
+		if not splits[key] then
+			local x, y, z = (vlist[i][1] + vlist[j][1]) / 2, (vlist[i][2] + vlist[j][2]) / 2, (vlist[i][3] + vlist[j][3]) / 2
+			insert(vlist, { x, y, z })
+			splits[key] = #vlist
+		end
+
+		return splits[key]
+	end
+	-- Subdivide
+	for _ = 1, subdivisions do
+		for i = #ilist, 1, -3 do
+			local v1, v2, v3 = ilist[i - 2], ilist[i - 1], ilist[i - 0]
+			local a, b, c = split(v1, v2), split(v2, v3), split(v3, v1)
+
+			insert(ilist, v1)
+			insert(ilist, a)
+			insert(ilist, c)
+
+			insert(ilist, v2)
+			insert(ilist, b)
+			insert(ilist, a)
+
+			insert(ilist, v3)
+			insert(ilist, c)
+			insert(ilist, b)
+
+			insert(ilist, a)
+			insert(ilist, b)
+			insert(ilist, c)
+
+			remove(ilist, i - 0)
+			remove(ilist, i - 1)
+			remove(ilist, i - 2)
+		end
+	end
+	-- Normalize
+	for _, v in ipairs(vlist) do
+		local x, y, z = unpack(v)
+		local length = sqrt(x * x + y * y + z * z) * 2
+		v[1], v[2], v[3] = x / length, y / length, z / length
+	end
+	
+	local px, py, pz = position.x, position.y, position.z
+	for _, v in ipairs(vlist) do
+		v[1] = (v[1]*radius) + px
+		v[2] = (v[2]*radius) + py
+		v[3] = (v[3]*radius) + pz
+	end
+	
+	local polygons = {}
+	for i = 1, #ilist - 2, 3 do
+		local v1, v2, v3 = vlist[ilist[i + 0]], vlist[ilist[i + 1]], vlist[ilist[i + 2]]
+		local triangle = {
+			newVertex(vec3(unpack(v1)), vec3(select(4, unpack(v1)))),
+			newVertex(vec3(unpack(v2)), vec3(select(4, unpack(v2)))),
+			newVertex(vec3(unpack(v3)), vec3(select(4, unpack(v3))))}
+		insert(polygons, newPolygon(triangle, shared))
+	end
+	return setmetatable({["polygons"] = polygons}, m)
 end
 
 function m.fromAxisAlignedCornerWedge(position, size, shared)

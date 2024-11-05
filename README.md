@@ -6,15 +6,19 @@ The intended use is for constructing low-polygon 3D meshes that can then be dyna
 
 # notes
 
+This CSG implementation is simple and not fully optimal. Expect large triangle counts (especially on complex shapes), and t-junctions
+
+The CSG operations are designed for closed 3D meshes. Ex: Unioning a cube touching a flat quad will be missing some polygons infront/behind the quad
+
 The only way to "render" a mesh in Roblox is with WedgeParts, ImageLabels, or EditableMeshes.
 
 Roblox's :BulkMoveTo() is the best way to position a mesh of WedgeParts, alternatively you can weld all the parts to a base/root part.
 
-The CSG operations are designed for closed 3D meshes. Ex: Unioning a cube touching a flat quad will be missing some polygons infront/behind the quad
-
 This is currently in Lua 5.1 without any Luau optimizations, for compatibility in older versions of Roblox pre 2019.
 
 Main Additions:
+
+recreating Roblox's CSG out of WedgeParts
 
 importing / exporting roblox meshes
 

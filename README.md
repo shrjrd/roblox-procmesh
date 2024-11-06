@@ -37,7 +37,7 @@ place file with examples
 
 replace lovr mat4 usage in solids.pyramid and solid.transform
 
-general optimizations
+general optimizations and clean up
 
 
 # solids

@@ -885,12 +885,8 @@ local function DrawCSG(csg)
 		for j = 3, #vertices do
 			local TriModel = Instance.new("Model")
 			local TriPart1, TriPart2 = WedgePart(vertices[1].pos, vertices[j-1].pos, vertices[j].pos, TriModel)
-			setPartProperties(TriPart1, properties) setPartProperties(TriPart2, properties)
-			for k, v in pairs(properties) do
-				if TriPart1[k] then
-					TriPart1[k], TriPart2[k] = v, v
-				end
-			end
+			setPartProperties(TriPart1, properties) 
+			setPartProperties(TriPart2, properties)
 			TriModel.Parent = CSGModel
 		end
 	end

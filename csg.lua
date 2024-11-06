@@ -710,12 +710,11 @@ function m.fromAxisAlignedCornerWedge(position, size, shared)
 	return setmetatable(
 		{
 			["polygons"] = {
-				newPolygon({newVertex(c3), newVertex(c2), newVertex(c7)}, shared),
-				newPolygon({newVertex(c7), newVertex(c2), newVertex(c6)}, shared),
-				newPolygon({newVertex(c3), newVertex(c1), newVertex(c2)}, shared),
-				newPolygon({newVertex(c6), newVertex(c2), newVertex(c1)}, shared),
-				newPolygon({newVertex(c6), newVertex(c1), newVertex(c7)}, shared),
+				newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
+				newPolygon({newVertex(c2), newVertex(c3), newVertex(c1)}, shared),
 				newPolygon({newVertex(c3), newVertex(c7), newVertex(c1)}, shared),
+				newPolygon({newVertex(c7), newVertex(c6), newVertex(c1)}, shared),
+				newPolygon({newVertex(c6), newVertex(c2), newVertex(c1)}, shared),
 			}
 		}, 
 		m
@@ -729,12 +728,11 @@ function m.fromOrientedCornerWedge(cframe, size, shared)
 	return setmetatable(
 		{
 			["polygons"] = {
-				newPolygon({newVertex(c3), newVertex(c2), newVertex(c7)}, shared),
-				newPolygon({newVertex(c7), newVertex(c2), newVertex(c6)}, shared),
-				newPolygon({newVertex(c3), newVertex(c1), newVertex(c2)}, shared),
-				newPolygon({newVertex(c6), newVertex(c2), newVertex(c1)}, shared),
-				newPolygon({newVertex(c6), newVertex(c1), newVertex(c7)}, shared),
+				newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
+				newPolygon({newVertex(c2), newVertex(c3), newVertex(c1)}, shared),
 				newPolygon({newVertex(c3), newVertex(c7), newVertex(c1)}, shared),
+				newPolygon({newVertex(c7), newVertex(c6), newVertex(c1)}, shared),
+				newPolygon({newVertex(c6), newVertex(c2), newVertex(c1)}, shared),
 			}
 		}, 
 		m
@@ -748,14 +746,11 @@ function m.fromAxisAlignedWedge(position, size, shared)
 	return setmetatable(
 		{
 			["polygons"] = {
-				newPolygon({newVertex(c2), newVertex(c5), newVertex(c6)}, shared),
-				newPolygon({newVertex(c7), newVertex(c8), newVertex(c3)}, shared),
-				newPolygon({newVertex(c6), newVertex(c5), newVertex(c7)}, shared),
-				newPolygon({newVertex(c7), newVertex(c5), newVertex(c8)}, shared),
-				newPolygon({newVertex(c3), newVertex(c2), newVertex(c7)}, shared),
-				newPolygon({newVertex(c7), newVertex(c2), newVertex(c6)}, shared),
-				newPolygon({newVertex(c2), newVertex(c3), newVertex(c5)}, shared),
-				newPolygon({newVertex(c3), newVertex(c8), newVertex(c5)}, shared),
+				newPolygon({newVertex(c2), newVertex(c3), newVertex(c8), newVertex(c5)}, shared),
+				newPolygon({newVertex(c7), newVertex(c6), newVertex(c5), newVertex(c8)}, shared),
+				newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
+				newPolygon({newVertex(c3), newVertex(c7), newVertex(c8)}, shared),
+				newPolygon({newVertex(c6), newVertex(c2), newVertex(c5)}, shared),
 			}
 		}, 
 		m
@@ -769,14 +764,11 @@ function m.fromOrientedWedge(cframe, size, shared)
 	return setmetatable(
 		{
 			["polygons"] = {
-				newPolygon({newVertex(c2), newVertex(c5), newVertex(c6)}, shared),
-				newPolygon({newVertex(c7), newVertex(c8), newVertex(c3)}, shared),
-				newPolygon({newVertex(c6), newVertex(c5), newVertex(c7)}, shared),
-				newPolygon({newVertex(c7), newVertex(c5), newVertex(c8)}, shared),
-				newPolygon({newVertex(c3), newVertex(c2), newVertex(c7)}, shared),
-				newPolygon({newVertex(c7), newVertex(c2), newVertex(c6)}, shared),
-				newPolygon({newVertex(c2), newVertex(c3), newVertex(c5)}, shared),
-				newPolygon({newVertex(c3), newVertex(c8), newVertex(c5)}, shared),
+				newPolygon({newVertex(c2), newVertex(c3), newVertex(c8), newVertex(c5)}, shared),
+				newPolygon({newVertex(c7), newVertex(c6), newVertex(c5), newVertex(c8)}, shared),
+				newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
+				newPolygon({newVertex(c3), newVertex(c7), newVertex(c8)}, shared),
+				newPolygon({newVertex(c6), newVertex(c2), newVertex(c5)}, shared),
 			}
 		}, 
 		m
@@ -791,18 +783,12 @@ function m.fromAxisAlignedBlock(position, size, shared)
 	return setmetatable(
 		{
 			["polygons"] = {
-				newPolygon({newVertex(c3), newVertex(c4), newVertex(c2)}, shared),
-				newPolygon({newVertex(c2), newVertex(c4), newVertex(c1)}, shared),
-				newPolygon({newVertex(c1), newVertex(c5), newVertex(c2)}, shared),
-				newPolygon({newVertex(c2), newVertex(c5), newVertex(c6)}, shared),
-				newPolygon({newVertex(c6), newVertex(c5), newVertex(c7)}, shared),
-				newPolygon({newVertex(c7), newVertex(c5), newVertex(c8)}, shared),
-				newPolygon({newVertex(c8), newVertex(c4), newVertex(c7)}, shared),
-				newPolygon({newVertex(c7), newVertex(c4), newVertex(c3)}, shared),
-				newPolygon({newVertex(c3), newVertex(c2), newVertex(c7)}, shared),
-				newPolygon({newVertex(c7), newVertex(c2), newVertex(c6)}, shared),
-				newPolygon({newVertex(c4), newVertex(c8), newVertex(c1)}, shared),
-				newPolygon({newVertex(c1), newVertex(c8), newVertex(c5)}, shared),
+				newPolygon({newVertex(c2), newVertex(c3), newVertex(c4), newVertex(c1)}, shared),
+				newPolygon({newVertex(c3), newVertex(c7), newVertex(c8), newVertex(c4)}, shared),
+				newPolygon({newVertex(c7), newVertex(c6), newVertex(c5), newVertex(c8)}, shared),
+				newPolygon({newVertex(c6), newVertex(c2), newVertex(c1), newVertex(c5)}, shared),
+				newPolygon({newVertex(c1), newVertex(c4), newVertex(c8), newVertex(c5)}, shared),
+				newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
 			}
 		}, 
 		m
@@ -817,18 +803,12 @@ function m.fromOrientedBlock(cframe, size, shared)
 	return setmetatable(
 		{
 			["polygons"] = {
-				newPolygon({newVertex(c3), newVertex(c4), newVertex(c2)}, shared),
-				newPolygon({newVertex(c2), newVertex(c4), newVertex(c1)}, shared),
-				newPolygon({newVertex(c1), newVertex(c5), newVertex(c2)}, shared),
-				newPolygon({newVertex(c2), newVertex(c5), newVertex(c6)}, shared),
-				newPolygon({newVertex(c6), newVertex(c5), newVertex(c7)}, shared),
-				newPolygon({newVertex(c7), newVertex(c5), newVertex(c8)}, shared),
-				newPolygon({newVertex(c8), newVertex(c4), newVertex(c7)}, shared),
-				newPolygon({newVertex(c7), newVertex(c4), newVertex(c3)}, shared),
-				newPolygon({newVertex(c3), newVertex(c2), newVertex(c7)}, shared),
-				newPolygon({newVertex(c7), newVertex(c2), newVertex(c6)}, shared),
-				newPolygon({newVertex(c4), newVertex(c8), newVertex(c1)}, shared),
-				newPolygon({newVertex(c1), newVertex(c8), newVertex(c5)}, shared),
+				newPolygon({newVertex(c2), newVertex(c3), newVertex(c4), newVertex(c1)}, shared),
+				newPolygon({newVertex(c3), newVertex(c7), newVertex(c8), newVertex(c4)}, shared),
+				newPolygon({newVertex(c7), newVertex(c6), newVertex(c5), newVertex(c8)}, shared),
+				newPolygon({newVertex(c6), newVertex(c2), newVertex(c1), newVertex(c5)}, shared),
+				newPolygon({newVertex(c1), newVertex(c4), newVertex(c8), newVertex(c5)}, shared),
+				newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
 			}
 		}, 
 		m

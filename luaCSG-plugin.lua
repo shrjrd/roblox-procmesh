@@ -11,7 +11,6 @@ NOTES:
 	
 BUGS:
 	csg stack overflow on complex unions
-	incorrect brickcolor and material on recreated CSG
 
 ]]
 
@@ -559,7 +558,7 @@ local csg do
 	local newPolygon = m.Polygon.new
 
 	local remove = table.remove
-	
+
 	local sqrt = math.sqrt
 	local abs = math.abs
 	local sin = math.sin
@@ -866,6 +865,19 @@ local function WedgePart(a, b, c, parent, w1, w2)
 	return w1, w2
 end
 
+local function getPartProperties(Part)
+	return {
+		["BrickColor"] = Part.BrickColor,
+		["Material"] = Part.Material,
+	}
+end
+
+local function setPartProperties(Part, Properties)
+	for PropertyName, PropertyValue in pairs(Properties) do
+		Part[PropertyName] = PropertyValue
+	end
+end
+
 local function DrawCSG(csg)
 	local CSGModel = Instance.new("Model")
 	for _, p in ipairs(csg.polygons) do
@@ -873,6 +885,7 @@ local function DrawCSG(csg)
 		for j = 3, #vertices do
 			local TriModel = Instance.new("Model")
 			local TriPart1, TriPart2 = WedgePart(vertices[1].pos, vertices[j-1].pos, vertices[j].pos, TriModel)
+			setPartProperties(TriPart1, properties) setPartProperties(TriPart2, properties)
 			for k, v in pairs(properties) do
 				if TriPart1[k] then
 					TriPart1[k], TriPart2[k] = v, v
@@ -890,16 +903,13 @@ local function isCFrameAxisAligned(cframe)
 	return (cframe.rightVector == v3x and cframe.upVector == v3y and cframe.lookVector == v3nz)
 end
 
-local function getCSGFromPart(part)
+local function getCSGFromPart(part, Properties)
 	if part:IsA("BasePart") then
+		Properties = Properties or getPartProperties(part) -- polygon properties to keep track of
 		local Shape = part.Shape
 		local CF = part.CFrame
 		local HalfSize = part.Size*.5
 		local isAxisAligned = isCFrameAxisAligned(CF)
-		local Properties = { -- polygon properties to keep track of
-			["BrickColor"] = part.BrickColor,
-			["Material"] = part.Material,
-		}
 		if Shape == Enum.PartType.Ball then
 			local radius = math.min(HalfSize.x, HalfSize.y, HalfSize.z)*.5
 			return csg.fromSphere(part.Position, radius, Properties)
@@ -962,7 +972,7 @@ traverseTree = function(tree, levels, csgInstance)
 	end
 end
 
-local function recreateCSG(UnionOperation, DeleteOriginal)
+local function recreateCSG(UnionOperation, DeleteOriginal, UseNegateProperties)
 	local csgTree = getTreeFromCSG({UnionOperation}) -- print(csgTree)
 
 	local csgTreeLevels = {}
@@ -994,8 +1004,12 @@ local function recreateCSG(UnionOperation, DeleteOriginal)
 			for i = 1, #NegateOperations do -- do the negates after the unions (the lua csg implementation doesn't union negates, only subtracts)
 				csgObject = csgObject:subtract(NegateOperations[i])
 			end -- end for
-		elseif csgInstanceClass == "NegateOperation" then -- if the tree level is for a negate
-			csgObject = csgObjects[level[2]] or getCSGFromPart(level[2])  -- negates only have one child in the tree, a union or part
+		elseif csgInstanceClass == "NegateOperation" then -- if the tree level is for a negate, child is either a union or part
+			csgObject = csgObjects[level[2]]
+			if csgObject == nil then
+				local Properties = (UseNegateProperties == true and getPartProperties(csgInstance)) or nil
+				csgObject = getCSGFromPart(level[2], Properties)
+			end
 		end -- end if
 
 		csgObjects[csgInstance] = csgObject -- pair the roblox csg with the matching custom csg class
@@ -1004,13 +1018,13 @@ local function recreateCSG(UnionOperation, DeleteOriginal)
 	local Model = DrawCSG(csgObjects[UnionOperation])
 	Model.Name = UnionOperation.Name
 	Model.Parent = UnionOperation.Parent
-	if DeleteOriginal then
+	if DeleteOriginal == true then
 		UnionOperation:Destroy()
 	end
 	return Model
 end
 
-local function recreateTableOfCSG(tbl, DeleteOriginal)
+local function recreateTableOfCSG(tbl, DeleteOriginal, UseNegateProperties)
 	local NumTbl = #tbl
 	for i = NumTbl, 1 , -1 do
 		if tbl[i].ClassName ~= "UnionOperation" then
@@ -1018,13 +1032,13 @@ local function recreateTableOfCSG(tbl, DeleteOriginal)
 		end
 	end
 	NumTbl = #tbl
-	
+
 	local printInterval = math.floor((NumTbl/100))
-	
+
 	local t0 = tick()
 	print("started recreating table of union(s)")
 	for index, instance in ipairs(tbl) do
-		recreateCSG(instance, DeleteOriginal)
+		recreateCSG(instance, DeleteOriginal, UseNegateProperties)
 		task.wait(1/60)
 		if index % printInterval == 0 then  -- dont print too often
 			print(math.floor(((index/NumTbl)*100)+.5).."%")
@@ -1037,14 +1051,15 @@ end
 local function outputHelpInfo()
 	print([[
 	
-	function recreate(UnionOperation, DeleteOriginal)
+	function recreate(UnionOperation, DeleteOriginal, UseNegateProperties)
 		recreates the UnionOperation out of WedgeParts
 		if DeleteOriginal is true, the original UnionOperation is deleted (default: false)
-		ex: _G.luaCSG.recreate(workspace.Union, true)
+		if UseNegateProperties is true, the properties from a NegateOperation will be used instead of it's separated part properties (default: false)
+		ex: _G.luaCSG.recreate(workspace.Union, true, true)
 			
-	function recreateTable(tbl, DeleteOriginal)	
+	function recreateTable(tbl, DeleteOriginal, UseNegateProperties)	
 		recreates all UnionOperation(s) in tbl (a table containing UnionOperation(s))
-		ex:	_G.luaCSG.recreateTable(workspace:GetDescendants(), true)	
+		ex:	_G.luaCSG.recreateTable(workspace:GetDescendants(), true, true)	
 	
 	]])
 end

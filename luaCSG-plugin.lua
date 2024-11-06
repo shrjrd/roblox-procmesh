@@ -10,7 +10,7 @@ NOTES:
 	uses bit32, which is only available in roblox versions 2019M+ (can replace with an equivalent lua 5.1 module)
 	
 BUGS:
-	csg stack overflow on complex unions
+	csg stack overflow on complex unions due to floating point errors
 
 ]]
 

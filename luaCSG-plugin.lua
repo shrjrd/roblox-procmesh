@@ -696,18 +696,17 @@ local csg do
 		return setmetatable(
 			{
 				["polygons"] = {
-					newPolygon({newVertex(c3), newVertex(c2), newVertex(c7)}, shared),
-					newPolygon({newVertex(c7), newVertex(c2), newVertex(c6)}, shared),
-					newPolygon({newVertex(c3), newVertex(c1), newVertex(c2)}, shared),
-					newPolygon({newVertex(c6), newVertex(c2), newVertex(c1)}, shared),
-					newPolygon({newVertex(c6), newVertex(c1), newVertex(c7)}, shared),
+					newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
+					newPolygon({newVertex(c2), newVertex(c3), newVertex(c1)}, shared),
 					newPolygon({newVertex(c3), newVertex(c7), newVertex(c1)}, shared),
+					newPolygon({newVertex(c7), newVertex(c6), newVertex(c1)}, shared),
+					newPolygon({newVertex(c6), newVertex(c2), newVertex(c1)}, shared),
 				}
 			}, 
 			m
 		)
 	end
-
+	
 	function m.fromOrientedCornerWedge(cframe, size, shared) 
 		local c1 = (cframe*cf(size*v1)).p
 		local c2, c3 = (cframe*cf(size*v2)).p, (cframe*cf(size*v3)).p
@@ -715,18 +714,17 @@ local csg do
 		return setmetatable(
 			{
 				["polygons"] = {
-					newPolygon({newVertex(c3), newVertex(c2), newVertex(c7)}, shared),
-					newPolygon({newVertex(c7), newVertex(c2), newVertex(c6)}, shared),
-					newPolygon({newVertex(c3), newVertex(c1), newVertex(c2)}, shared),
-					newPolygon({newVertex(c6), newVertex(c2), newVertex(c1)}, shared),
-					newPolygon({newVertex(c6), newVertex(c1), newVertex(c7)}, shared),
+					newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
+					newPolygon({newVertex(c2), newVertex(c3), newVertex(c1)}, shared),
 					newPolygon({newVertex(c3), newVertex(c7), newVertex(c1)}, shared),
+					newPolygon({newVertex(c7), newVertex(c6), newVertex(c1)}, shared),
+					newPolygon({newVertex(c6), newVertex(c2), newVertex(c1)}, shared),
 				}
 			}, 
 			m
 		)
 	end
-
+	
 	function m.fromAxisAlignedWedge(position, size, shared)
 		local c2, c3 = position + (size*v2), position + (size*v3)
 		local c5, c6 = position + (size*v5), position + (size*v6)
@@ -734,20 +732,17 @@ local csg do
 		return setmetatable(
 			{
 				["polygons"] = {
-					newPolygon({newVertex(c2), newVertex(c5), newVertex(c6)}, shared),
-					newPolygon({newVertex(c7), newVertex(c8), newVertex(c3)}, shared),
-					newPolygon({newVertex(c6), newVertex(c5), newVertex(c7)}, shared),
-					newPolygon({newVertex(c7), newVertex(c5), newVertex(c8)}, shared),
-					newPolygon({newVertex(c3), newVertex(c2), newVertex(c7)}, shared),
-					newPolygon({newVertex(c7), newVertex(c2), newVertex(c6)}, shared),
-					newPolygon({newVertex(c2), newVertex(c3), newVertex(c5)}, shared),
-					newPolygon({newVertex(c3), newVertex(c8), newVertex(c5)}, shared),
+					newPolygon({newVertex(c2), newVertex(c3), newVertex(c8), newVertex(c5)}, shared),
+					newPolygon({newVertex(c7), newVertex(c6), newVertex(c5), newVertex(c8)}, shared),
+					newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
+					newPolygon({newVertex(c3), newVertex(c7), newVertex(c8)}, shared),
+					newPolygon({newVertex(c6), newVertex(c2), newVertex(c5)}, shared),
 				}
 			}, 
 			m
 		)
 	end
-
+	
 	function m.fromOrientedWedge(cframe, size, shared) 
 		local c2, c3 = (cframe*cf(size*v2)).p, (cframe*cf(size*v3)).p
 		local c5, c6 = (cframe*cf(size*v5)).p, (cframe*cf(size*v6)).p
@@ -755,20 +750,17 @@ local csg do
 		return setmetatable(
 			{
 				["polygons"] = {
-					newPolygon({newVertex(c2), newVertex(c5), newVertex(c6)}, shared),
-					newPolygon({newVertex(c7), newVertex(c8), newVertex(c3)}, shared),
-					newPolygon({newVertex(c6), newVertex(c5), newVertex(c7)}, shared),
-					newPolygon({newVertex(c7), newVertex(c5), newVertex(c8)}, shared),
-					newPolygon({newVertex(c3), newVertex(c2), newVertex(c7)}, shared),
-					newPolygon({newVertex(c7), newVertex(c2), newVertex(c6)}, shared),
-					newPolygon({newVertex(c2), newVertex(c3), newVertex(c5)}, shared),
-					newPolygon({newVertex(c3), newVertex(c8), newVertex(c5)}, shared),
+					newPolygon({newVertex(c2), newVertex(c3), newVertex(c8), newVertex(c5)}, shared),
+					newPolygon({newVertex(c7), newVertex(c6), newVertex(c5), newVertex(c8)}, shared),
+					newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
+					newPolygon({newVertex(c3), newVertex(c7), newVertex(c8)}, shared),
+					newPolygon({newVertex(c6), newVertex(c2), newVertex(c5)}, shared),
 				}
 			}, 
 			m
 		)
 	end
-
+	
 	function m.fromAxisAlignedBlock(position, size, shared)
 		local c1, c2 = position + (size*v1), position + (size*v2)
 		local c3, c4 = position + (size*v3), position + (size*v4)
@@ -777,24 +769,18 @@ local csg do
 		return setmetatable(
 			{
 				["polygons"] = {
-					newPolygon({newVertex(c3), newVertex(c4), newVertex(c2)}, shared),
-					newPolygon({newVertex(c2), newVertex(c4), newVertex(c1)}, shared),
-					newPolygon({newVertex(c1), newVertex(c5), newVertex(c2)}, shared),
-					newPolygon({newVertex(c2), newVertex(c5), newVertex(c6)}, shared),
-					newPolygon({newVertex(c6), newVertex(c5), newVertex(c7)}, shared),
-					newPolygon({newVertex(c7), newVertex(c5), newVertex(c8)}, shared),
-					newPolygon({newVertex(c8), newVertex(c4), newVertex(c7)}, shared),
-					newPolygon({newVertex(c7), newVertex(c4), newVertex(c3)}, shared),
-					newPolygon({newVertex(c3), newVertex(c2), newVertex(c7)}, shared),
-					newPolygon({newVertex(c7), newVertex(c2), newVertex(c6)}, shared),
-					newPolygon({newVertex(c4), newVertex(c8), newVertex(c1)}, shared),
-					newPolygon({newVertex(c1), newVertex(c8), newVertex(c5)}, shared),
+					newPolygon({newVertex(c2), newVertex(c3), newVertex(c4), newVertex(c1)}, shared),
+					newPolygon({newVertex(c3), newVertex(c7), newVertex(c8), newVertex(c4)}, shared),
+					newPolygon({newVertex(c7), newVertex(c6), newVertex(c5), newVertex(c8)}, shared),
+					newPolygon({newVertex(c6), newVertex(c2), newVertex(c1), newVertex(c5)}, shared),
+					newPolygon({newVertex(c1), newVertex(c4), newVertex(c8), newVertex(c5)}, shared),
+					newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
 				}
 			}, 
 			m
 		)
 	end
-
+	
 	function m.fromOrientedBlock(cframe, size, shared)
 		local c1, c2 = (cframe*cf(size*v1)).p, (cframe*cf(size*v2)).p
 		local c3, c4 = (cframe*cf(size*v3)).p, (cframe*cf(size*v4)).p
@@ -803,18 +789,12 @@ local csg do
 		return setmetatable(
 			{
 				["polygons"] = {
-					newPolygon({newVertex(c3), newVertex(c4), newVertex(c2)}, shared),
-					newPolygon({newVertex(c2), newVertex(c4), newVertex(c1)}, shared),
-					newPolygon({newVertex(c1), newVertex(c5), newVertex(c2)}, shared),
-					newPolygon({newVertex(c2), newVertex(c5), newVertex(c6)}, shared),
-					newPolygon({newVertex(c6), newVertex(c5), newVertex(c7)}, shared),
-					newPolygon({newVertex(c7), newVertex(c5), newVertex(c8)}, shared),
-					newPolygon({newVertex(c8), newVertex(c4), newVertex(c7)}, shared),
-					newPolygon({newVertex(c7), newVertex(c4), newVertex(c3)}, shared),
-					newPolygon({newVertex(c3), newVertex(c2), newVertex(c7)}, shared),
-					newPolygon({newVertex(c7), newVertex(c2), newVertex(c6)}, shared),
-					newPolygon({newVertex(c4), newVertex(c8), newVertex(c1)}, shared),
-					newPolygon({newVertex(c1), newVertex(c8), newVertex(c5)}, shared),
+					newPolygon({newVertex(c2), newVertex(c3), newVertex(c4), newVertex(c1)}, shared),
+					newPolygon({newVertex(c3), newVertex(c7), newVertex(c8), newVertex(c4)}, shared),
+					newPolygon({newVertex(c7), newVertex(c6), newVertex(c5), newVertex(c8)}, shared),
+					newPolygon({newVertex(c6), newVertex(c2), newVertex(c1), newVertex(c5)}, shared),
+					newPolygon({newVertex(c1), newVertex(c4), newVertex(c8), newVertex(c5)}, shared),
+					newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
 				}
 			}, 
 			m

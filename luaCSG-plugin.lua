@@ -946,13 +946,12 @@ end
 local getTreeFromCSG -- create a tree that represents the csg operations
 getTreeFromCSG = function(tbl)
 	local tree = {}
-	for _, v in ipairs(tbl) do
-		if v.ClassName == "UnionOperation" or v.ClassName == "NegateOperation" then
-			local ClonedInstance = v:Clone() -- cloned in order to preserve the original instance
-			local SeparatedInstances = plugin:Separate({ClonedInstance})
-			tree[v] = getTreeFromCSG(SeparatedInstances) -- create new child nodes from parent union's separated components
+	for _, instance in ipairs(tbl) do
+		if instance.ClassName == "UnionOperation" or instance.ClassName == "NegateOperation" then
+			local SeparatedInstances = plugin:Separate({instance})
+			tree[instance] = getTreeFromCSG(SeparatedInstances) -- create new child nodes from parent union's separated components
 		else
-			tree[v] = true -- part, has no child nodes
+			tree[instance] = true -- part, has no child nodes
 		end
 	end
 	return tree
@@ -961,11 +960,11 @@ end
 local traverseTree -- traverse and sort tree into level order, bottom up
 traverseTree = function(tree, levels, csgInstance)
 	local level = {csgInstance} -- new level, mark it with which union/negate it belongs to
-	for k, v in pairs(tree) do
-		if k.ClassName == "UnionOperation" or k.ClassName == "NegateOperation" then
-			traverseTree(v, levels, k)
+	for instance, branch in pairs(tree) do
+		if instance.ClassName == "UnionOperation" or instance.ClassName == "NegateOperation" then
+			traverseTree(branch, levels, instance)
 		end
-		table.insert(level, k) -- add node to level
+		table.insert(level, instance) -- add node to level
 	end
 	if csgInstance then
 		table.insert(levels, level)
@@ -973,7 +972,7 @@ traverseTree = function(tree, levels, csgInstance)
 end
 
 local function recreateCSG(UnionOperation, DeleteOriginal, UseNegateProperties)
-	local csgTree = getTreeFromCSG({UnionOperation}) -- print(csgTree)
+	local csgTree = getTreeFromCSG({UnionOperation:Clone()}) -- print(csgTree)
 
 	local csgTreeLevels = {}
 	traverseTree(csgTree, csgTreeLevels) -- print(csgTreeLevels)
@@ -1015,11 +1014,15 @@ local function recreateCSG(UnionOperation, DeleteOriginal, UseNegateProperties)
 		csgObjects[csgInstance] = csgObject -- pair the roblox csg with the matching custom csg class
 	end -- end for
 
-	local Model = DrawCSG(csgObjects[UnionOperation])
+	local Model = DrawCSG(csgObjects[next(csgTree)])
 	Model.Name = UnionOperation.Name
 	Model.Parent = UnionOperation.Parent
 	if DeleteOriginal == true then
 		UnionOperation:Destroy()
+	end
+	for k in pairs(csgObjects) do
+		csgObjects[k] = nil
+		k:Destroy()
 	end
 	return Model
 end

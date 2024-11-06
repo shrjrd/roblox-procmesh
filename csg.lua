@@ -1,7 +1,7 @@
 local vec3 = Vector3.new
 local floor = math.floor
 local insert = table.insert
-
+local bor = bit32.bor -- you can use a lua 5.1 bitwise library as a replacement in pre 2019 roblox
 
 -- utility functions for lists stored in Lua tables
 local function lmap(t, f)
@@ -244,8 +244,8 @@ m.Vertex.__index = m.Vertex
 
 function m.Vertex.new(pos, normal)
 	local self = setmetatable({}, m.Vertex)  
-	self.pos = pos --vec3(pos)
-	self.normal = vec3(normal)
+	self.pos = pos
+	self.normal = normal or vec3()
 	return self
 end
 
@@ -258,7 +258,7 @@ end
 -- Invert all orientation-specific data (e.g. vertex normal). Called when the
 -- orientation of a polygon is flipped.
 function m.Vertex:flip()
-	self.normal = self.normal*-1 --:mul(-1)
+	self.normal = -(self.normal)
 end
 
 
@@ -317,13 +317,14 @@ function m.Plane:splitPolygon(polygon, coplanarFront, coplanarBack, front, back)
 	local FRONT = 1
 	local BACK = 2
 	local SPANNING = 3
-
+	local lookup = {} --lookup table instead of doing dot products twice
 	-- Classify each point as well as the entire polygon into one of the above
 	-- four classes.
 	local polygonType = 0
 	local types = {}
 	for i, v in ipairs(polygon.vertices) do
-		local t = self.normal:Dot(v.pos) - self.w
+		local NormalDotPosition = self.normal:Dot(v.pos)
+		local t = NormalDotPosition - self.w
 		local ptype = COPLANAR
 		if (t <= -m.Plane.EPSILON) then
 			ptype = BACK
@@ -331,9 +332,10 @@ function m.Plane:splitPolygon(polygon, coplanarFront, coplanarBack, front, back)
 			ptype = FRONT
 		end
 		if (ptype ~= 0) then
-			polygonType = bit32.bor(polygonType, ptype)
+			polygonType = bor(polygonType, ptype)
 		end
 		insert(types, ptype)
+		lookup[i] = NormalDotPosition
 	end
 
 	-- Put the polygon in the correct list, splitting it when necessary.
@@ -363,9 +365,8 @@ function m.Plane:splitPolygon(polygon, coplanarFront, coplanarBack, front, back)
 					insert(b, vi)
 				end
 			end
-			if (bit32.bor(ti, tj) == SPANNING) then
-				--local t = (self.w - self.normal:Dot(vi.pos)) / self.normal:Dot(vec3(vj.pos):sub(vi.pos))
-				local t = (self.w - self.normal:Dot(vi.pos)) / self.normal:Dot(vj.pos - vi.pos)
+			if (bor(ti, tj) == SPANNING) then
+				local t = (self.w - lookup[i]) / self.normal:Dot(vj.pos - vi.pos)
 				local v = vi:interpolate(vj, t)
 				insert(f, v)
 				insert(b, v:clone())
@@ -394,7 +395,9 @@ function m.Polygon.new(vertices, shared)
 	local self = setmetatable({}, m.Polygon)
 	self.vertices = vertices
 	self.shared = shared
-	self.plane = m.Plane.fromPoints(vertices[1].pos, vertices[2].pos, vertices[3].pos)
+	local a = vertices[1]
+	local n = a.normal
+	self.plane = m.Plane.new(n, n:Dot(a.pos))
 	return self
 end
 
@@ -409,7 +412,6 @@ function m.Polygon:flip()
 	lmap(lreverse(self.vertices), function(v) v:flip() end)
 	self.plane:flip()
 end
-
 
 
 --/ class Node --------------------------------------------------------------------------
@@ -507,7 +509,7 @@ function m.Node:build(polygons, depth)
 	for i, p in ipairs(polygons) do
 		self.plane:splitPolygon(p, self.polygons, self.polygons, front, back)
 	end
-	if depth > 500 then --[[print"stack overflow"]] return end --stack overflow
+	if depth > 8000 then print"csg stack overflow" return end
 	if (#front > 0) then
 		if (not self.front) then self.front = m.Node.new() end
 		self.front:build(front, depth + 1)
@@ -518,7 +520,8 @@ function m.Node:build(polygons, depth)
 	end
 end
 
--- Extra Functions
+
+-- roblox-procmesh utility
 local v3x = vec3(1,0,0)
 local v3y = vec3(0,1,0)
 local v3z = vec3(0,0,1)
@@ -535,6 +538,10 @@ local v6 = vec3( 1, -1,  1) -- bottom back right
 local v7 = vec3(-1, -1,  1) -- bottom back left
 local v8 = vec3(-1,  1,  1) -- top back left
 
+local cn1 = vec3(-0.7071067690849304, 0.7071067690849304, 0)
+local cn2 = vec3(0, 0.7071067690849304, 0.7071067690849304)
+local wn1 = vec3(0, 0.7071067690849304, -0.7071067690849304)
+
 local newVertex = m.Vertex.new
 local newPolygon = m.Polygon.new
 
@@ -545,34 +552,11 @@ local sin = math.sin
 local cos = math.cos
 local pi = math.pi
 local clamp = math.clamp
+local sqrt = math.sqrt
 
 local cf = CFrame.new
 
-local epsilon = 1e-3
-
-
-local function Vector3FuzzyEq(v1, v2)
-	local v1x, v2x = v1.X, v2.X
-	if v1x == v2x or abs(v1x - v2x) <= (abs(v1x) + 1) * epsilon then
-		local v1y, v2y = v1.Y, v2.Y
-		if v1y == v2y or abs(v1y - v2y) <= (abs(v1y) + 1) * epsilon then
-			local v1z, v2z = v1.Z, v2.Z
-			if v1z == v2z or abs(v1z - v2z) <= (abs(v1z) + 1) * epsilon then
-				return true
-			end
-		end
-	end
-	return false
-end
-
-local function FloatFuzzyEq(f1, f2)
-	return f1 == f2 or abs(f1 - f2) <= (abs(f1) + 1) * epsilon
-end
-
-local function isCFrameAxisAligned(cframe)
-	return (cframe.rightVector == v3x and cframe.upVector == v3y and cframe.lookVector == v3nz)
-end
-
+local vtws = cf().vectorToWorldSpace
 
 -- "Roblox cylinders also have the interesting quirk of not being regular. The sides get smaller as the angle approaches pi*(2n+1)/4 and get larger as the angle approaches pi*n/2."
 function m.fromAxisAlignedCylinder(position, size, shared)
@@ -609,7 +593,6 @@ function m.fromOrientedSphereMesh(cframe, size, shared)
 
 end
 
-local sqrt = math.sqrt
 function m.fromSphere(position, radius, shared) --radius is math.min(PartSize.x, PartSize.y, PartSize.z)
 	local subdivisions = 2
 	local phi = (1 + sqrt(5)) / 2
@@ -704,17 +687,17 @@ function m.fromSphere(position, radius, shared) --radius is math.min(PartSize.x,
 end
 
 function m.fromAxisAlignedCornerWedge(position, size, shared)
-	local c1 = (position + (size*v1)).p
-	local c2, c3 = (position + (size*v2)).p, (position + (size*v3)).p
-	local c6, c7 = (position + (size*v6)).p, (position + (size*v7)).p
+	local c1 = (position + (size*v1))
+	local c2, c3 = (position + (size*v2)), (position + (size*v3))
+	local c6, c7 = (position + (size*v6)), (position + (size*v7))
 	return setmetatable(
 		{
 			["polygons"] = {
-				newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
-				newPolygon({newVertex(c2), newVertex(c3), newVertex(c1)}, shared),
-				newPolygon({newVertex(c3), newVertex(c7), newVertex(c1)}, shared),
-				newPolygon({newVertex(c7), newVertex(c6), newVertex(c1)}, shared),
-				newPolygon({newVertex(c6), newVertex(c2), newVertex(c1)}, shared),
+				newPolygon({newVertex(c6,v3ny), newVertex(c7,v3ny), newVertex(c3,v3ny), newVertex(c2,v3ny)}, shared),
+				newPolygon({newVertex(c2,v3nz), newVertex(c3,v3nz), newVertex(c1,v3nz)}, shared),
+				newPolygon({newVertex(c3, cn1), newVertex(c7, cn1), newVertex(c1, cn1)}, shared),
+				newPolygon({newVertex(c7, cn2), newVertex(c6, cn2), newVertex(c1, cn2)}, shared),
+				newPolygon({newVertex(c6, v3x), newVertex(c2, v3x), newVertex(c1, v3x)}, shared),
 			}
 		}, 
 		m
@@ -722,17 +705,21 @@ function m.fromAxisAlignedCornerWedge(position, size, shared)
 end
 
 function m.fromOrientedCornerWedge(cframe, size, shared) 
+	local lookVector, upVector, rightVector = cframe.lookVector, cframe.upVector, cframe.rightVector
+	local n1, n2, n5 = -upVector, lookVector, rightVector
+	local n3 = vtws(cframe, (cf(0,0,0, 0,-1,0, 1,0,0, 0,0,0)*(size*2)).unit)
+	local n4 = vtws(cframe, (cf(0,0,0, 0,0,0, 0,0,1, 0,1,0)*(size*2)).unit)
 	local c1 = (cframe*cf(size*v1)).p
 	local c2, c3 = (cframe*cf(size*v2)).p, (cframe*cf(size*v3)).p
 	local c6, c7 = (cframe*cf(size*v6)).p, (cframe*cf(size*v7)).p
 	return setmetatable(
 		{
 			["polygons"] = {
-				newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
-				newPolygon({newVertex(c2), newVertex(c3), newVertex(c1)}, shared),
-				newPolygon({newVertex(c3), newVertex(c7), newVertex(c1)}, shared),
-				newPolygon({newVertex(c7), newVertex(c6), newVertex(c1)}, shared),
-				newPolygon({newVertex(c6), newVertex(c2), newVertex(c1)}, shared),
+				newPolygon({newVertex(c6,n1), newVertex(c7,n1), newVertex(c3,n1), newVertex(c2,n1)}, shared), --bottom
+				newPolygon({newVertex(c2,n2), newVertex(c3,n2), newVertex(c1,n2)}, shared),
+				newPolygon({newVertex(c3,n3), newVertex(c7,n3), newVertex(c1,n3)}, shared),
+				newPolygon({newVertex(c7,n4), newVertex(c6,n4), newVertex(c1,n4)}, shared),
+				newPolygon({newVertex(c6,n5), newVertex(c2,n5), newVertex(c1,n5)}, shared),
 			}
 		}, 
 		m
@@ -746,11 +733,11 @@ function m.fromAxisAlignedWedge(position, size, shared)
 	return setmetatable(
 		{
 			["polygons"] = {
-				newPolygon({newVertex(c2), newVertex(c3), newVertex(c8), newVertex(c5)}, shared),
-				newPolygon({newVertex(c7), newVertex(c6), newVertex(c5), newVertex(c8)}, shared),
-				newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
-				newPolygon({newVertex(c3), newVertex(c7), newVertex(c8)}, shared),
-				newPolygon({newVertex(c6), newVertex(c2), newVertex(c5)}, shared),
+				newPolygon({newVertex(c2, wn1), newVertex(c3, wn1), newVertex(c8, wn1), newVertex(c5, wn1)}, shared),
+				newPolygon({newVertex(c7, v3z), newVertex(c6, v3z), newVertex(c5, v3z), newVertex(c8, v3z)}, shared),
+				newPolygon({newVertex(c6,v3ny), newVertex(c7,v3ny), newVertex(c3,v3ny), newVertex(c2,v3ny)}, shared),
+				newPolygon({newVertex(c3,v3nx), newVertex(c7,v3nx), newVertex(c8,v3nx)}, shared),
+				newPolygon({newVertex(c6, v3x), newVertex(c2, v3x), newVertex(c5, v3x)}, shared),
 			}
 		}, 
 		m
@@ -758,17 +745,20 @@ function m.fromAxisAlignedWedge(position, size, shared)
 end
 
 function m.fromOrientedWedge(cframe, size, shared) 
+	local lookVector, upVector, rightVector = cframe.lookVector, cframe.upVector, cframe.rightVector
+	local n1 = vtws(cframe, (cf(0,0,0, 0,0,0, 0,0,1, 0,-1,0)*(size*2)).unit)
+	local n2, n3, n4, n5 = -lookVector, -upVector, -rightVector, rightVector
 	local c2, c3 = (cframe*cf(size*v2)).p, (cframe*cf(size*v3)).p
 	local c5, c6 = (cframe*cf(size*v5)).p, (cframe*cf(size*v6)).p
 	local c7, c8 = (cframe*cf(size*v7)).p, (cframe*cf(size*v8)).p
 	return setmetatable(
 		{
 			["polygons"] = {
-				newPolygon({newVertex(c2), newVertex(c3), newVertex(c8), newVertex(c5)}, shared),
-				newPolygon({newVertex(c7), newVertex(c6), newVertex(c5), newVertex(c8)}, shared),
-				newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
-				newPolygon({newVertex(c3), newVertex(c7), newVertex(c8)}, shared),
-				newPolygon({newVertex(c6), newVertex(c2), newVertex(c5)}, shared),
+				newPolygon({newVertex(c2,n1), newVertex(c3,n1), newVertex(c8,n1), newVertex(c5,n1)}, shared),
+				newPolygon({newVertex(c7,n2), newVertex(c6,n2), newVertex(c5,n2), newVertex(c8,n2)}, shared),
+				newPolygon({newVertex(c6,n3), newVertex(c7,n3), newVertex(c3,n3), newVertex(c2,n3)}, shared),
+				newPolygon({newVertex(c3,n4), newVertex(c7,n4), newVertex(c8,n4)}, shared),
+				newPolygon({newVertex(c6,n5), newVertex(c2,n5), newVertex(c5,n5)}, shared),
 			}
 		}, 
 		m
@@ -783,12 +773,12 @@ function m.fromAxisAlignedBlock(position, size, shared)
 	return setmetatable(
 		{
 			["polygons"] = {
-				newPolygon({newVertex(c2), newVertex(c3), newVertex(c4), newVertex(c1)}, shared),
-				newPolygon({newVertex(c3), newVertex(c7), newVertex(c8), newVertex(c4)}, shared),
-				newPolygon({newVertex(c7), newVertex(c6), newVertex(c5), newVertex(c8)}, shared),
-				newPolygon({newVertex(c6), newVertex(c2), newVertex(c1), newVertex(c5)}, shared),
-				newPolygon({newVertex(c1), newVertex(c4), newVertex(c8), newVertex(c5)}, shared),
-				newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
+				newPolygon({newVertex(c2,v3nz), newVertex(c3,v3nz), newVertex(c4,v3nz), newVertex(c1,v3nz)}, shared),
+				newPolygon({newVertex(c3,v3nx), newVertex(c7,v3nx), newVertex(c8,v3nx), newVertex(c4,v3nx)}, shared),
+				newPolygon({newVertex(c7, v3z), newVertex(c6, v3z), newVertex(c5, v3z), newVertex(c8, v3z)}, shared),
+				newPolygon({newVertex(c6 ,v3x), newVertex(c2, v3x), newVertex(c1, v3x), newVertex(c5, v3x)}, shared),
+				newPolygon({newVertex(c1, v3y), newVertex(c4, v3y), newVertex(c8, v3y), newVertex(c5, v3y)}, shared),
+				newPolygon({newVertex(c6,v3ny), newVertex(c7,v3ny), newVertex(c3,v3ny), newVertex(c2,v3ny)}, shared),
 			}
 		}, 
 		m
@@ -800,19 +790,83 @@ function m.fromOrientedBlock(cframe, size, shared)
 	local c3, c4 = (cframe*cf(size*v3)).p, (cframe*cf(size*v4)).p
 	local c5, c6 = (cframe*cf(size*v5)).p, (cframe*cf(size*v6)).p
 	local c7, c8 = (cframe*cf(size*v7)).p, (cframe*cf(size*v8)).p
+	local lookVector, upVector, rightVector = cframe.lookVector, cframe.upVector, cframe.rightVector
+	local n1, n2, n3, n4, n5, n6 =  lookVector, -rightVector, -lookVector,  rightVector, upVector, -upVector
 	return setmetatable(
 		{
 			["polygons"] = {
-				newPolygon({newVertex(c2), newVertex(c3), newVertex(c4), newVertex(c1)}, shared),
-				newPolygon({newVertex(c3), newVertex(c7), newVertex(c8), newVertex(c4)}, shared),
-				newPolygon({newVertex(c7), newVertex(c6), newVertex(c5), newVertex(c8)}, shared),
-				newPolygon({newVertex(c6), newVertex(c2), newVertex(c1), newVertex(c5)}, shared),
-				newPolygon({newVertex(c1), newVertex(c4), newVertex(c8), newVertex(c5)}, shared),
-				newPolygon({newVertex(c6), newVertex(c7), newVertex(c3), newVertex(c2)}, shared),
+				newPolygon({newVertex(c2,n1), newVertex(c3,n1), newVertex(c4,n1), newVertex(c1,n1)}, shared),
+				newPolygon({newVertex(c3,n2), newVertex(c7,n2), newVertex(c8,n2), newVertex(c4,n2)}, shared),
+				newPolygon({newVertex(c7,n3), newVertex(c6,n3), newVertex(c5,n3), newVertex(c8,n3)}, shared),
+				newPolygon({newVertex(c6,n4), newVertex(c2,n4), newVertex(c1,n4), newVertex(c5,n4)}, shared),
+				newPolygon({newVertex(c1,n5), newVertex(c4,n5), newVertex(c8,n5), newVertex(c5,n5)}, shared),
+				newPolygon({newVertex(c6,n6), newVertex(c7,n6), newVertex(c3,n6), newVertex(c2,n6)}, shared),
 			}
 		}, 
 		m
 	)
+end
+
+local epsilon = 1e-3
+local function Vector3FuzzyEq(v1, v2)
+	local v1x, v2x = v1.X, v2.X
+	if v1x == v2x or abs(v1x - v2x) <= (abs(v1x) + 1) * epsilon then
+		local v1y, v2y = v1.Y, v2.Y
+		if v1y == v2y or abs(v1y - v2y) <= (abs(v1y) + 1) * epsilon then
+			local v1z, v2z = v1.Z, v2.Z
+			if v1z == v2z or abs(v1z - v2z) <= (abs(v1z) + 1) * epsilon then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function FloatFuzzyEq(f1, f2)
+	return f1 == f2 or abs(f1 - f2) <= (abs(f1) + 1) * epsilon
+end
+
+local function isCFrameAxisAligned(cframe)
+	return (cframe.rightVector == v3x and cframe.upVector == v3y and cframe.lookVector == v3nz)
+end
+
+function m.getCSGFromPart(part, Properties)
+	if part:IsA("BasePart") then
+		local Shape = part.Shape
+		local CF = part.CFrame
+		local HalfSize = part.Size*.5
+		local isAxisAligned = isCFrameAxisAligned(CF)
+		if Shape == Enum.PartType.Ball then
+			local radius = math.min(HalfSize.x, HalfSize.y, HalfSize.z)*.5
+			return m.fromSphere(part.Position, radius, Properties)
+		elseif Shape == Enum.PartType.Block then
+			if isAxisAligned then
+				return m.fromAxisAlignedBlock(part.Position, HalfSize, Properties)
+			else	
+				return m.fromOrientedBlock(CF, HalfSize, Properties)
+			end
+		elseif Shape == Enum.PartType.CornerWedge then
+			if isAxisAligned then
+				return m.fromAxisAlignedCornerWedge(part.Position, HalfSize, Properties)
+			else	
+				return m.fromOrientedCornerWedge(CF, HalfSize, Properties)
+			end
+		elseif Shape == Enum.PartType.Cylinder then
+			if isAxisAligned then
+				return m.fromOrientedCylinder(CF, HalfSize, Properties) --csg.fromAxisAlignedCylinder(part.Position, HalfSize, Properties)
+			else	
+				return m.fromOrientedCylinder(CF, HalfSize, Properties)
+			end
+		elseif Shape == Enum.PartType.Wedge then
+			if isAxisAligned then
+				return m.fromAxisAlignedWedge(part.Position, HalfSize, Properties)
+			else	
+				return m.fromOrientedWedge(CF, HalfSize, Properties)
+			end
+		end
+	else
+
+	end
 end
 
 function m:getPolygonsFacingDirection(direction)
@@ -985,22 +1039,29 @@ local function findGroup(group, v)
 	end
 end
 
+-- flood fill mesh's vertices as graph to find disconnected pieces
+-- polygons in csg in groups > optimal with lots of peices, suboptimal with minimal peices
+-- polygon indices in groups > optimal with minimal peices, suboptimal with lots of peices
+-- cloned polygons in groups > slightly optimal to csg, slightly suboptimal to indicies
 function m:scission()
 	local Polygons = self.polygons
-	local PolygonGroups = {}
-	local groups = {}
+	local PolygonGroups, groups = {}, {}
+	
 	for PolygonIndex = 1, #Polygons do
+		
 		local Polygon = Polygons[PolygonIndex]
 		local Vertices = Polygon.vertices
 		local NumVertices = #Vertices
 		local GroupIndex
+		
 		for VertexIndex = 1, NumVertices do
+			
 			local A, B = Vertices[VertexIndex].pos, Vertices[(VertexIndex % NumVertices) + 1].pos
 			local groupAi, groupBi = findGroup(groups, A), findGroup(groups, B)
 			local groupA, groupB = groups[groupAi], groups[groupBi]
 			if groupA and not groupB then
 				insert(groupA, B)
-
+				
 				GroupIndex = groupAi
 			elseif not groupA and groupB then
 				insert(groupB, A)
@@ -1015,6 +1076,7 @@ function m:scission()
 					
 					local polygonsA, polygonsB = PolygonGroups[groupAi], PolygonGroups[groupBi]
 					if polygonsA then
+						polygonsA, polygonsB = polygonsA.polygons, polygonsB.polygons
 						for i = 1, #polygonsB do 
 							insert(polygonsA, polygonsB[i]) 
 						end
@@ -1022,39 +1084,29 @@ function m:scission()
 						PolygonGroups[groupAi] = polygonsB
 					end
 					remove(PolygonGroups, groupBi)
-					
 				end
 				
 				GroupIndex = groupAi
 			else
 				insert(groups, {A, B})
-			
+				
 				GroupIndex = #groups
 			end
+			
 		end
 		
 		local PolygonGroup = PolygonGroups[GroupIndex]
 		if not PolygonGroup then
-			PolygonGroups[GroupIndex] = {PolygonIndex}
+			PolygonGroups[GroupIndex] = setmetatable({["polygons"] = {Polygon:clone()}}, m)
 		else
-			insert(PolygonGroup, PolygonIndex)
+			insert(PolygonGroup.polygons, Polygon:clone())
 		end
 		
 	end
-
-	if #groups == 1 then return {self} end
-
-	local newcsgs = {}
 	
-	for i1, v1 in ipairs(PolygonGroups) do
-		local NewPolygons = {}
-		for i2, v2 in ipairs(v1) do
-			NewPolygons[i2] = Polygons[v2]:clone()
-		end
-		newcsgs[i1] = setmetatable({["polygons"] = NewPolygons}, m)
-	end
-	
-	return newcsgs
+	return PolygonGroups
 end
+
+
 
 return m

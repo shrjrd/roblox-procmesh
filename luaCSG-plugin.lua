@@ -599,7 +599,7 @@ local csg do
 	function m.fromSphere(position, radius, shared) --radius is math.min(PartSize.x, PartSize.y, PartSize.z)
 		local subdivisions = 2
 		local phi = (1 + sqrt(5)) / 2
-		vlist = {
+		local vlist = {
 			{ -1,  phi, 0 },
 			{  1,  phi, 0 },
 			{ -1, -phi, 0 },
@@ -615,7 +615,7 @@ local csg do
 			{ -phi, 0, -1 },
 			{ -phi, 0,  1 }
 		}
-		ilist = {
+		local ilist = {
 			1, 12, 6,  1, 6, 2,  1, 2, 8,  1, 8, 11,  1, 11, 12,
 			2, 6, 10,  6, 12, 5,  12, 11, 3,  11, 8, 7,  8, 2, 9,
 			4, 10, 5,  4, 5, 3,  4, 3, 7,  4, 7, 9,  4, 9, 10,

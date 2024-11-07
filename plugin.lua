@@ -10,8 +10,9 @@ NOTES:
 
 ]]
 
-local csg = require(script.Parent.csg)
-local draw = require(script.Parent.draw)
+local ModuleContainer = script.Parent
+local csg = require(ModuleContainer.csg)
+local draw = require(ModuleContainer.draw)
 local getCSGFromPart = csg.getCSGFromPart
 local getProperties = draw.getProperties
 local drawCSG = draw.Polygons
@@ -65,11 +66,15 @@ local function recreateCSG(UnionOperation, DeleteOriginal, UseNegateProperties)
 				local instanceClass = instance.ClassName
 
 				if instanceClass == "UnionOperation" then -- if a union node
-					csgObject = (csgObject and csgObject:union(csgObjects[instance])) or csgObjects[instance]
+					csgObject =
+						(csgObject and csgObject:union(csgObjects[instance])) 
+						or csgObjects[instance]
 				elseif instanceClass == "NegateOperation" then -- if a negate node
 					table.insert(NegateOperations, csgObjects[instance])
 				elseif instanceClass == "Part" then -- if a part node
-					csgObject = (csgObject and csgObject:union(getCSGFromPart(instance))) or getCSGFromPart(instance)
+					csgObject = 
+						( csgObject and csgObject:union( getCSGFromPart(instance, getProperties(instance)) ) ) 
+						or getCSGFromPart(instance, getProperties(instance))
 				end -- end if
 			end -- end for
 
@@ -79,6 +84,23 @@ local function recreateCSG(UnionOperation, DeleteOriginal, UseNegateProperties)
 		elseif csgInstanceClass == "NegateOperation" then -- if the tree level is for a negate, child is either a union or part
 			local child = level[2]
 			csgObject = csgObjects[child] or getCSGFromPart( child, (UseNegateProperties and getProperties(csgInstance)) or getProperties(child) )
+			--[[
+			csgObject = csgObjects[child]
+			if csgObject == nil then
+				local NegateHasWrongColor, PartHasWrongColor = csgInstance.BrickColor.Name == "Institutional white", child.BrickColor.Name == "Medium stone grey"
+				if NegateHasWrongColor and not PartHasWrongColor then
+					csgObject = getCSGFromPart(child, getProperties(child))
+				elseif not NegateHasWrongColor and PartHasWrongColor then
+					csgObject = getCSGFromPart(child, getProperties(csgInstance))
+				elseif NegateHasWrongColor and PartHasWrongColor then
+					if UseNegateProperties then
+						csgObject = getCSGFromPart(child, getProperties(csgInstance))
+					else
+						csgObject = getCSGFromPart(child, getProperties(child))
+					end
+				end
+			end
+			]]
 		end -- end if
 
 		csgObjects[csgInstance] = csgObject -- pair the roblox csg with the matching custom csg class

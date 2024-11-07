@@ -560,23 +560,25 @@ local vtws = cf().vectorToWorldSpace
 
 -- "Roblox cylinders also have the interesting quirk of not being regular. The sides get smaller as the angle approaches pi*(2n+1)/4 and get larger as the angle approaches pi*n/2."
 function m.fromAxisAlignedCylinder(position, size, shared)
-	
+
 end
 
 function m.fromOrientedCylinder(cframe, size, shared)
+	size = size * .5
 	local segments = 24
 	local a, b = cframe*cf(v3nx*size), cframe*cf(v3x*size) -- bottom, top of cylinder
-	local ap, bp, sy, sz = a.p, b.p, size.y, size.z
+	local ap, bp = a.p, b.p
+	local r = math.min(size.y, size.z) --local sy, sz = size.y, size.z
 	local polygons = {}
 	for i = 0, segments - 1 do
 		local theta = (i*(2*pi)/segments)
 		local costheta, sintheta = cos(theta), sin(theta)
-		local v1 = (a*cf(0, sy*costheta, sz*sintheta)).p
-		local v2 = (b*cf(0, sy*costheta, sz*sintheta)).p
+		local v1 = (a*cf(0, r*costheta, r*sintheta)).p
+		local v2 = (b*cf(0, r*costheta, r*sintheta)).p
 		theta = ((i + 1)*(2*pi)/segments)
 		costheta, sintheta = cos(theta), sin(theta)
-		local v3 = (a*cf(0, sy*costheta, sz*sintheta)).p
-		local v4 = (b*cf(0, sy*costheta, sz*sintheta)).p
+		local v3 = (a*cf(0, r*costheta, r*sintheta)).p
+		local v4 = (b*cf(0, r*costheta, r*sintheta)).p
 		insert(polygons, newPolygon({newVertex(v4), newVertex(v2), newVertex(v1)}, shared))
 		insert(polygons, newPolygon({newVertex(v3), newVertex(v4), newVertex(v1)}, shared))
 		insert(polygons, newPolygon({newVertex(v2), newVertex(v4), newVertex(bp)}, shared))
@@ -586,7 +588,7 @@ function m.fromOrientedCylinder(cframe, size, shared)
 end
 
 function m.fromAxisAlignedSphereMesh(position, size, shared)
-	
+
 end
 
 function m.fromOrientedSphereMesh(cframe, size, shared)
@@ -618,7 +620,7 @@ function m.fromSphere(position, radius, shared) --radius is math.min(PartSize.x,
 		4, 10, 5,  4, 5, 3,  4, 3, 7,  4, 7, 9,  4, 9, 10,
 		5, 10, 6,  3, 5, 12,  7, 3, 11,  9, 7, 8,  10, 9, 2
 	}
-	
+
 	-- Cache vertex splits to avoid duplicates
 	local splits = {}
 	-- Splits self.vlist i and j, creating a new vertex and returning the index
@@ -666,14 +668,14 @@ function m.fromSphere(position, radius, shared) --radius is math.min(PartSize.x,
 		local length = sqrt(x * x + y * y + z * z) * 2
 		v[1], v[2], v[3] = x / length, y / length, z / length
 	end
-	
+
 	local px, py, pz = position.x, position.y, position.z
 	for _, v in ipairs(vlist) do
 		v[1] = (v[1]*radius) + px
 		v[2] = (v[2]*radius) + py
 		v[3] = (v[3]*radius) + pz
 	end
-	
+
 	local polygons = {}
 	for i = 1, #ilist - 2, 3 do
 		local v1, v2, v3 = vlist[ilist[i + 0]], vlist[ilist[i + 1]], vlist[ilist[i + 2]]
@@ -687,6 +689,7 @@ function m.fromSphere(position, radius, shared) --radius is math.min(PartSize.x,
 end
 
 function m.fromAxisAlignedCornerWedge(position, size, shared)
+	size = size * .5
 	local c1 = (position + (size*v1))
 	local c2, c3 = (position + (size*v2)), (position + (size*v3))
 	local c6, c7 = (position + (size*v6)), (position + (size*v7))
@@ -705,10 +708,11 @@ function m.fromAxisAlignedCornerWedge(position, size, shared)
 end
 
 function m.fromOrientedCornerWedge(cframe, size, shared) 
-	local lookVector, upVector, rightVector = cframe.lookVector, cframe.upVector, cframe.rightVector
-	local n1, n2, n5 = -upVector, lookVector, rightVector
 	local n3 = vtws(cframe, (cf(0,0,0, 0,-1,0, 1,0,0, 0,0,0)*(size*2)).unit)
 	local n4 = vtws(cframe, (cf(0,0,0, 0,0,0, 0,0,1, 0,1,0)*(size*2)).unit)
+	local lookVector, upVector, rightVector = cframe.lookVector, cframe.upVector, cframe.rightVector
+	local n1, n2, n5 = -upVector, lookVector, rightVector
+	size = size * .5
 	local c1 = (cframe*cf(size*v1)).p
 	local c2, c3 = (cframe*cf(size*v2)).p, (cframe*cf(size*v3)).p
 	local c6, c7 = (cframe*cf(size*v6)).p, (cframe*cf(size*v7)).p
@@ -727,6 +731,7 @@ function m.fromOrientedCornerWedge(cframe, size, shared)
 end
 
 function m.fromAxisAlignedWedge(position, size, shared)
+	size = size * .5
 	local c2, c3 = position + (size*v2), position + (size*v3)
 	local c5, c6 = position + (size*v5), position + (size*v6)
 	local c7, c8 = position + (size*v7), position + (size*v8)
@@ -745,9 +750,10 @@ function m.fromAxisAlignedWedge(position, size, shared)
 end
 
 function m.fromOrientedWedge(cframe, size, shared) 
+	local n1 = vtws(cframe, (cf(0,0,0, 0,0,0, 0,0,1, 0,-1,0)*size).unit)
 	local lookVector, upVector, rightVector = cframe.lookVector, cframe.upVector, cframe.rightVector
-	local n1 = vtws(cframe, (cf(0,0,0, 0,0,0, 0,0,1, 0,-1,0)*(size*2)).unit)
 	local n2, n3, n4, n5 = -lookVector, -upVector, -rightVector, rightVector
+	size = size * .5
 	local c2, c3 = (cframe*cf(size*v2)).p, (cframe*cf(size*v3)).p
 	local c5, c6 = (cframe*cf(size*v5)).p, (cframe*cf(size*v6)).p
 	local c7, c8 = (cframe*cf(size*v7)).p, (cframe*cf(size*v8)).p
@@ -766,6 +772,7 @@ function m.fromOrientedWedge(cframe, size, shared)
 end
 
 function m.fromAxisAlignedBlock(position, size, shared)
+	size = size * .5
 	local c1, c2 = position + (size*v1), position + (size*v2)
 	local c3, c4 = position + (size*v3), position + (size*v4)
 	local c5, c6 = position + (size*v5), position + (size*v6)
@@ -786,6 +793,7 @@ function m.fromAxisAlignedBlock(position, size, shared)
 end
 
 function m.fromOrientedBlock(cframe, size, shared)
+	size = size * .5
 	local c1, c2 = (cframe*cf(size*v1)).p, (cframe*cf(size*v2)).p
 	local c3, c4 = (cframe*cf(size*v3)).p, (cframe*cf(size*v4)).p
 	local c5, c6 = (cframe*cf(size*v5)).p, (cframe*cf(size*v6)).p
@@ -830,38 +838,37 @@ local function isCFrameAxisAligned(cframe)
 	return (cframe.rightVector == v3x and cframe.upVector == v3y and cframe.lookVector == v3nz)
 end
 
-function m.getCSGFromPart(part, Properties)
-	if part:IsA("BasePart") then
-		local Shape = part.Shape
-		local CF = part.CFrame
-		local HalfSize = part.Size*.5
-		local isAxisAligned = isCFrameAxisAligned(CF)
+function m.getCSGFromPart(Part, Properties)
+	if Part:IsA("BasePart") then
+		local Shape = Part.Shape
 		if Shape == Enum.PartType.Ball then
-			local radius = math.min(HalfSize.x, HalfSize.y, HalfSize.z)*.5
-			return m.fromSphere(part.Position, radius, Properties)
-		elseif Shape == Enum.PartType.Block then
-			if isAxisAligned then
-				return m.fromAxisAlignedBlock(part.Position, HalfSize, Properties)
+			local PartSize = Part.Size
+			return m.fromSphere(Part.Position, math.min(PartSize.x, PartSize.y, PartSize.z), Properties)
+		end
+		local PartCFrame = Part.CFrame
+		if Shape == Enum.PartType.Block then
+			if isCFrameAxisAligned(PartCFrame) then
+				return m.fromAxisAlignedBlock(Part.Position, Part.Size, Properties)
 			else	
-				return m.fromOrientedBlock(CF, HalfSize, Properties)
+				return m.fromOrientedBlock(PartCFrame, Part.Size, Properties)
 			end
 		elseif Shape == Enum.PartType.CornerWedge then
-			if isAxisAligned then
-				return m.fromAxisAlignedCornerWedge(part.Position, HalfSize, Properties)
+			if isCFrameAxisAligned(PartCFrame) then
+				return m.fromAxisAlignedCornerWedge(Part.Position, Part.Size, Properties)
 			else	
-				return m.fromOrientedCornerWedge(CF, HalfSize, Properties)
+				return m.fromOrientedCornerWedge(PartCFrame, Part.Size, Properties)
 			end
 		elseif Shape == Enum.PartType.Cylinder then
-			if isAxisAligned then
-				return m.fromOrientedCylinder(CF, HalfSize, Properties) --csg.fromAxisAlignedCylinder(part.Position, HalfSize, Properties)
+			if isCFrameAxisAligned(PartCFrame) then
+				return m.fromOrientedCylinder(PartCFrame, Part.Size, Properties) --csg.fromAxisAlignedCylinder(part.Position, HalfSize, Properties)
 			else	
-				return m.fromOrientedCylinder(CF, HalfSize, Properties)
+				return m.fromOrientedCylinder(PartCFrame, Part.Size, Properties)
 			end
 		elseif Shape == Enum.PartType.Wedge then
-			if isAxisAligned then
-				return m.fromAxisAlignedWedge(part.Position, HalfSize, Properties)
+			if isCFrameAxisAligned(PartCFrame) then
+				return m.fromAxisAlignedWedge(Part.Position, Part.Size, Properties)
 			else	
-				return m.fromOrientedWedge(CF, HalfSize, Properties)
+				return m.fromOrientedWedge(PartCFrame, Part.Size, Properties)
 			end
 		end
 	else
@@ -1000,7 +1007,7 @@ function m.extrudeTowardsPosition(csg, point, distance, RemoveExtrudedSurface)
 end
 
 function m.extrudeFromPosition(csg, point, distance, RemoveExtrudedSurface)
-	
+
 end
 
 function m.extrudeFromDirection(csg, offset, RemoveExtrudedSurface)
@@ -1046,26 +1053,26 @@ end
 function m:scission()
 	local Polygons = self.polygons
 	local PolygonGroups, groups = {}, {}
-	
+
 	for PolygonIndex = 1, #Polygons do
-		
+
 		local Polygon = Polygons[PolygonIndex]
 		local Vertices = Polygon.vertices
 		local NumVertices = #Vertices
 		local GroupIndex
-		
+
 		for VertexIndex = 1, NumVertices do
-			
+
 			local A, B = Vertices[VertexIndex].pos, Vertices[(VertexIndex % NumVertices) + 1].pos
 			local groupAi, groupBi = findGroup(groups, A), findGroup(groups, B)
 			local groupA, groupB = groups[groupAi], groups[groupBi]
 			if groupA and not groupB then
 				insert(groupA, B)
-				
+
 				GroupIndex = groupAi
 			elseif not groupA and groupB then
 				insert(groupB, A)
-				
+
 				GroupIndex = groupBi
 			elseif groupA and groupB then
 				if groupA ~= groupB then
@@ -1073,7 +1080,7 @@ function m:scission()
 						insert(groupA, groupB[i])
 					end
 					remove(groups, groupBi)
-					
+
 					local polygonsA, polygonsB = PolygonGroups[groupAi], PolygonGroups[groupBi]
 					if polygonsA then
 						polygonsA, polygonsB = polygonsA.polygons, polygonsB.polygons
@@ -1085,25 +1092,25 @@ function m:scission()
 					end
 					remove(PolygonGroups, groupBi)
 				end
-				
+
 				GroupIndex = groupAi
 			else
 				insert(groups, {A, B})
-				
+
 				GroupIndex = #groups
 			end
-			
+
 		end
-		
+
 		local PolygonGroup = PolygonGroups[GroupIndex]
 		if not PolygonGroup then
 			PolygonGroups[GroupIndex] = setmetatable({["polygons"] = {Polygon:clone()}}, m)
 		else
 			insert(PolygonGroup.polygons, Polygon:clone())
 		end
-		
+
 	end
-	
+
 	return PolygonGroups
 end
 

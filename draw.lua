@@ -17,9 +17,9 @@ WedgePart.Anchored = true
 WedgePart.TopSurface = Enum.SurfaceType.Smooth
 WedgePart.BottomSurface = Enum.SurfaceType.Smooth
 
-local wedgeMesh = Instance.new("SpecialMesh")
-wedgeMesh.MeshType = Enum.MeshType.Wedge
-wedgeMesh.Scale = vec3(0,1,1)
+local WedgeMesh = Instance.new("SpecialMesh", WedgePart)
+WedgeMesh.MeshType = Enum.MeshType.Wedge
+WedgeMesh.Scale = vec3(0,1,1)
 
 local m = {}
 
@@ -54,12 +54,10 @@ local function drawTriangle(a, b, c, parent, w1, w2)
 	w1 = w1 or WedgePart:Clone()
 	w1.Size = vec3(0, height, abs(ab:Dot(back)))
 	w1.CFrame = CFrameFromMatrix((a + b)/2, right, up, back)
-	wedgeMesh:Clone().Parent = w1
 	w1.Parent = parent
 	w2 = w2 or WedgePart:Clone()
 	w2.Size = vec3(0, height, abs(ac:Dot(back)))
 	w2.CFrame = CFrameFromMatrix((a + c)/2, -right, up, -back)
-	wedgeMesh:Clone().Parent = w2
 	w2.Parent = parent
 	return w1, w2
 end
@@ -162,6 +160,9 @@ function m.VerticesSolid(solid)
 	end
 end
 
+m.Point = drawPoint
+m.Line = drawLine
+m.Triangle = drawTriangle
 m.setProperties = setProperties
 m.getProperties = getProperties
 

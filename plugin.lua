@@ -17,6 +17,8 @@ local getCSGFromPart = csg.getCSGFromPart
 local getProperties = draw.getProperties
 local drawCSG = draw.Polygons
 
+local ChangeHistoryService = game:GetService("ChangeHistoryService")
+
 local getTreeFromCSG -- create a tree that represents the csg operations
 getTreeFromCSG = function(tbl)
 	local tree = {}
@@ -150,7 +152,7 @@ local function outputHelpInfo()
 		recreates the UnionOperation out of WedgeParts
 		if DeleteOriginal is true, the original UnionOperation is deleted (default: false)
 		if UseNegateProperties is true, the properties from a NegateOperation will be used instead of it's separated part properties (default: false)
-		ex: _G.luaCSG.recreate(workspace.Union, true, true)
+		ex: _G.luaCSG.recreate(workspace.Union, false, true)
 			
 	function recreateTable(tbl, DeleteOriginal, UseNegateProperties)	
 		recreates all UnionOperation(s) in tbl (a table containing UnionOperation(s))
@@ -159,11 +161,34 @@ local function outputHelpInfo()
 	]])
 end
 
+local function repeatTryBeginRecording(name)
+	local recording
+	local count = 1
+	repeat
+		recording = ChangeHistoryService:TryBeginRecording(name)
+		count = count + 1
+	until recording ~= nil or count >= 30
+	if recording == nil then
+		print("ChangeHistoryService:TryBeginRecording("..name..") failed")
+	end
+	return recording
+end
+
+local function wrapFunctionForChangeHistory(func, name)
+	return function(...)
+		local recording = repeatTryBeginRecording(name)
+		func(...)
+		if recording then ChangeHistoryService:FinishRecording(recording, Enum.FinishRecordingOperation.Commit) end
+		--ChangeHistoryService:SetWaypoint(name)
+	end
+end
+
 print"luaCSG plugin loaded"
 print"type _G.luaCSG.help() in command bar for a list of commands"
 
 _G.luaCSG = {
-	["help"] = outputHelpInfo,
-	["recreate"] = recreateCSG,
-	["recreateTable"] = recreateTableOfCSG,
+	help = outputHelpInfo,
+	recreate = wrapFunctionForChangeHistory(recreateCSG, "luaCSG.recreate"),
+	recreateTable = wrapFunctionForChangeHistory(recreateTableOfCSG, "luaCSG.recreateTable"),
 }
+

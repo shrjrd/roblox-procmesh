@@ -2,6 +2,11 @@ local vec3 = Vector3.new
 local floor = math.floor
 local insert = table.insert
 local bor = bit32.bor -- you can use a lua 5.1 bitwise library as a replacement in pre 2019 roblox
+local vec3zero = vec3()
+
+local planeEpsilon = 0.0002 --1e-5 -- tolerance used by `splitPolygon()` to decide if a point is on the plane
+
+local newVertex, newNode, newPolygon, newPlane, newPlaneFromPoints
 
 -- utility functions for lists stored in Lua tables
 local function lmap(t, f)
@@ -111,10 +116,10 @@ function m.fromSolid(solid, shared)
 		local v2 = solid.vlist[solid.ilist[i + 1]]
 		local v3 = solid.vlist[solid.ilist[i + 2]]
 		local triangle = {
-			m.Vertex.new(vec3(unpack(v1)), vec3(select(4, unpack(v1)))),
-			m.Vertex.new(vec3(unpack(v2)), vec3(select(4, unpack(v2)))),
-			m.Vertex.new(vec3(unpack(v3)), vec3(select(4, unpack(v3))))}
-		insert(self.polygons, m.Polygon.new(triangle, shared))
+			newVertex(vec3(unpack(v1)), vec3(select(4, unpack(v1)))),
+			newVertex(vec3(unpack(v2)), vec3(select(4, unpack(v2)))),
+			newVertex(vec3(unpack(v3)), vec3(select(4, unpack(v3))))}
+		insert(self.polygons, newPolygon(triangle, shared))
 	end
 	return self
 end
@@ -161,8 +166,8 @@ end
 --          |       |             |       |
 --          +-------+             +-------+
 function m:union(csg) 
-	local a = m.Node.new(self:clone().polygons)
-	local b = m.Node.new(csg:clone().polygons)
+	local a = newNode(self:clone().polygons)
+	local b = newNode(csg:clone().polygons)
 	a:clipTo(b)
 	b:clipTo(a)
 	b:invert()
@@ -184,8 +189,8 @@ end
 --          +-------+
 -- 
 function m:subtract(csg)
-	local a = m.Node.new(self:clone().polygons)
-	local b = m.Node.new(csg:clone().polygons)
+	local a = newNode(self:clone().polygons)
+	local b = newNode(csg:clone().polygons)
 	a:invert()
 	a:clipTo(b)
 	b:clipTo(a)
@@ -209,8 +214,8 @@ end
 --          +-------+
 -- 
 function m:intersect(csg)
-	local a = m.Node.new(self:clone().polygons)
-	local b = m.Node.new(csg:clone().polygons)
+	local a = newNode(self:clone().polygons)
+	local b = newNode(csg:clone().polygons)
 	a:invert()
 	b:clipTo(a)
 	b:invert()
@@ -248,17 +253,18 @@ function m.Vertex.new(pos, normal)
 	self.normal = normal or vec3()
 	return self
 end
+newVertex = m.Vertex.new
 
 
 function m.Vertex:clone()
-	return m.Vertex.new(self.pos, self.normal)
+	return newVertex(self.pos, self.normal)
 end
 
 
 -- Invert all orientation-specific data (e.g. vertex normal). Called when the
 -- orientation of a polygon is flipped.
 function m.Vertex:flip()
-	self.normal = -(self.normal)
+	self.normal = -self.normal
 end
 
 
@@ -266,7 +272,7 @@ end
 -- interpolating all properties using a parameter of `t`. Subclasses should
 -- override self.to interpolate additional properties.
 function m.Vertex:interpolate(other, t)
-	return m.Vertex.new(
+	return newVertex(
 		self.pos:Lerp(other.pos, t),
 		self.normal:Lerp(other.normal, t)
 	)
@@ -276,9 +282,7 @@ end
 -- # class Plane
 
 -- Represents a plane in 3D space.
-m.Plane = {
-	EPSILON = 1e-3 --1e-5 -- tolerance used by `splitPolygon()` to decide if a point is on the plane
-}
+m.Plane = {}
 m.Plane.__index = m.Plane
 
 
@@ -288,24 +292,25 @@ function m.Plane.new(normal, w)
 	self.w = w
 	return self
 end
+newPlane = m.Plane.new
 
 
 function m.Plane.fromPoints(a, b, c)
 	local n = (b-a):Cross(c-a).unit -- vec3(b):sub(a):cross(vec3(c):sub(a)):normalize()
-	return m.Plane.new(n, n:Dot(a))
+	return newPlane(n, n:Dot(a))
 end
+newPlaneFromPoints = m.Plane.fromPoints
 
 
 function m.Plane:clone()
-	return m.Plane.new(self.normal, self.w)
+	return newPlane(self.normal, self.w)
 end
 
 
 function m.Plane:flip()
-	self.normal = self.normal*-1 --:mul(-1)
+	self.normal = -self.normal
 	self.w = -self.w
 end
-
 
 -- Split `polygon` by self.plane if needed, then put the polygon or polygon
 -- fragments in the appropriate lists. Coplanar polygons go into either
@@ -313,34 +318,31 @@ end
 -- respect to self.plane. Polygons in front or in back of self.plane go into
 -- either `front` or `back`.
 function m.Plane:splitPolygon(polygon, coplanarFront, coplanarBack, front, back)
-	local COPLANAR = 0
-	local FRONT = 1
-	local BACK = 2
-	local SPANNING = 3
-	local lookup = {} --lookup table instead of doing dot products twice
-	-- Classify each point as well as the entire polygon into one of the above
-	-- four classes.
-	local polygonType = 0
-	local types = {}
-	for i, v in ipairs(polygon.vertices) do
-		local NormalDotPosition = self.normal:Dot(v.pos)
-		local t = NormalDotPosition - self.w
+	local selfNormal, selfW = self.normal, self.w
+	local PolygonVertices = polygon.vertices
+	local NumPolygonVertices = #PolygonVertices
+	local polygonType, COPLANAR, FRONT, BACK, SPANNING = 0, 0, 1, 2, 3
+	-- Classify each point as well as the entire polygon into one of the above four classes.
+	local types, lookup = {}, {}
+	for i = 1, NumPolygonVertices do
+		local NormalDotPosition = selfNormal:Dot(PolygonVertices[i].pos)
+		local t = NormalDotPosition - selfW
 		local ptype = COPLANAR
-		if (t <= -m.Plane.EPSILON) then
+		if (t <= -planeEpsilon) then
 			ptype = BACK
-		elseif (t >= m.Plane.EPSILON) then
+		elseif (t >= planeEpsilon) then
 			ptype = FRONT
 		end
 		if (ptype ~= 0) then
 			polygonType = bor(polygonType, ptype)
 		end
 		insert(types, ptype)
-		lookup[i] = NormalDotPosition
+		lookup[i] = NormalDotPosition --lookup table instead of doing dot products twice
 	end
 
 	-- Put the polygon in the correct list, splitting it when necessary.
 	if(polygonType == COPLANAR) then
-		if self.normal:Dot(polygon.plane.normal) > 0 then
+		if selfNormal:Dot(polygon.plane.normal) > 0 then
 			insert(coplanarFront, polygon)
 		else 
 			insert(coplanarBack, polygon)
@@ -350,14 +352,15 @@ function m.Plane:splitPolygon(polygon, coplanarFront, coplanarBack, front, back)
 	elseif(polygonType == BACK) then
 		insert(back, polygon)
 	elseif(polygonType == SPANNING) then
-		local f = {}
-		local b = {}
-		for i, vi in ipairs(polygon.vertices) do
-			local j = 1 + (i % #polygon.vertices)
-			local ti = types[i]
-			local tj = types[j]
-			local vj = polygon.vertices[j]
-			if (ti ~= BACK) then insert(f, vi) end
+		local f, b = {}, {}
+		--for i, vi in ipairs(PolygonVertices) do
+		for i = 1, NumPolygonVertices do
+			local vi = PolygonVertices[i]
+			local j = 1 + (i % NumPolygonVertices)
+			local ti, vj = types[i], PolygonVertices[j]
+			if (ti ~= BACK) then 
+				insert(f, vi) 
+			end
 			if (ti ~= FRONT) then
 				if (ti ~= BACK) then
 					insert(b, vi:clone())
@@ -365,15 +368,14 @@ function m.Plane:splitPolygon(polygon, coplanarFront, coplanarBack, front, back)
 					insert(b, vi)
 				end
 			end
-			if (bor(ti, tj) == SPANNING) then
-				local t = (self.w - lookup[i]) / self.normal:Dot(vj.pos - vi.pos)
-				local v = vi:interpolate(vj, t)
+			if (bor(ti, types[j]) == SPANNING) then
+				local v = vi:interpolate(vj, (selfW - lookup[i]) / selfNormal:Dot(vj.pos - vi.pos))
 				insert(f, v)
 				insert(b, v:clone())
 			end
 		end
-		if (#f >= 3) then insert(front, m.Polygon.new(f, polygon.shared)) end
-		if (#b >= 3) then insert(back, m.Polygon.new(b, polygon.shared)) end
+		if (#f >= 3) then insert(front, newPolygon(f, polygon.shared)) end
+		if (#b >= 3) then insert(back, newPolygon(b, polygon.shared)) end
 	end
 
 end
@@ -395,16 +397,21 @@ function m.Polygon.new(vertices, shared)
 	local self = setmetatable({}, m.Polygon)
 	self.vertices = vertices
 	self.shared = shared
-	local a = vertices[1]
-	local n = a.normal
-	self.plane = m.Plane.new(n, n:Dot(a.pos))
+	local v1 = vertices[1]
+	local n = v1.normal
+	if n ~= vec3zero then
+		self.plane = newPlane(n, n:Dot(v1.pos))
+	else
+		self.plane = newPlaneFromPoints(v1.pos, vertices[2].pos, vertices[3].pos)
+	end
 	return self
 end
+newPolygon = m.Polygon.new
 
 
 function m.Polygon:clone()
 	local vertices = lmap(self.vertices, function(v) return v:clone() end)
-	return m.Polygon.new(vertices, self.shared)
+	return newPolygon(vertices, self.shared)
 end
 
 
@@ -434,10 +441,11 @@ function m.Node.new(polygons)
 	if (polygons) then self:build(polygons) end
 	return self
 end
+newNode = m.Node.new
 
 
 function m.Node:clone()
-	local other = m.Node.new()
+	local other = newNode()
 	other.plane = self.plane and self.plane:clone()
 	other.front = self.front and self.front:clone()
 	other.back = self.back and self.back:clone()
@@ -454,9 +462,7 @@ function m.Node:invert()
 	self.plane:flip()
 	if (self.front) then self.front:invert() end
 	if (self.back) then self.back:invert() end
-	local temp = self.front
-	self.front = self.back
-	self.back = temp
+	self.front, self.back = self.back, self.front
 end
 
 
@@ -464,8 +470,7 @@ end
 -- tree.
 function m.Node:clipPolygons(polygons)
 	if (not self.plane) then return lcopy(polygons) end
-	local front = {}
-	local back = {}
+	local front, back = {}, {}
 	for i, p in ipairs(polygons) do
 		self.plane:splitPolygon(p, front, back, front, back)
 	end
@@ -499,29 +504,43 @@ end
 -- nodes there. Each set of polygons is partitioned using the first polygon
 -- (no heuristic is used to pick a good split).
 function m.Node:build(polygons, depth)
-	depth = depth or 1
 	if (#polygons == 0) then return end
+	depth = depth or 1
+	local selfPolygons = self.polygons
 	if (not self.plane) then 
 		self.plane = polygons[1].plane:clone()  -- no heuristic, just use whatever the first polygon is
 	end
-	local front = {}
-	local back = {}
+	local front, back = {}, {}
 	for i, p in ipairs(polygons) do
-		self.plane:splitPolygon(p, self.polygons, self.polygons, front, back)
+		self.plane:splitPolygon(p, selfPolygons, selfPolygons, front, back)
 	end
 	if depth > 8000 then print"csg stack overflow" return end
 	if (#front > 0) then
-		if (not self.front) then self.front = m.Node.new() end
+		if (not self.front) then self.front = newNode() end
 		self.front:build(front, depth + 1)
 	end
 	if (#back > 0) then
-		if (not self.back) then self.back = m.Node.new() end
+		if (not self.back) then self.back = newNode() end
 		self.back:build(back, depth + 1)
 	end
 end
 
 
 -- roblox-procmesh utility
+local remove = table.remove
+
+local abs = math.abs
+local sin = math.sin
+local cos = math.cos
+local pi = math.pi
+local clamp = math.clamp
+local sqrt = math.sqrt
+local min = math.min
+
+local cf = CFrame.new
+
+local vtws = cf().vectorToWorldSpace
+
 local v3x = vec3(1,0,0)
 local v3y = vec3(0,1,0)
 local v3z = vec3(0,0,1)
@@ -538,25 +557,12 @@ local v6 = vec3( 1, -1,  1) -- bottom back right
 local v7 = vec3(-1, -1,  1) -- bottom back left
 local v8 = vec3(-1,  1,  1) -- top back left
 
+local CornerWedgeSlope1CFrame = cf(0,0,0, 0,-1,0, 1,0,0, 0,0,0)
+local CornerWedgeSlope2CFrame = cf(0,0,0, 0,0,0, 0,0,1, 0,1,0)
 local cn1 = vec3(-0.7071067690849304, 0.7071067690849304, 0)
 local cn2 = vec3(0, 0.7071067690849304, 0.7071067690849304)
+local WedgeSlopeCFrame = cf(0,0,0, 0,0,0, 0,0,1, 0,-1,0)
 local wn1 = vec3(0, 0.7071067690849304, -0.7071067690849304)
-
-local newVertex = m.Vertex.new
-local newPolygon = m.Polygon.new
-
-local remove = table.remove
-
-local abs = math.abs
-local sin = math.sin
-local cos = math.cos
-local pi = math.pi
-local clamp = math.clamp
-local sqrt = math.sqrt
-
-local cf = CFrame.new
-
-local vtws = cf().vectorToWorldSpace
 
 -- "Roblox cylinders also have the interesting quirk of not being regular. The sides get smaller as the angle approaches pi*(2n+1)/4 and get larger as the angle approaches pi*n/2."
 function m.fromAxisAlignedCylinder(position, size, shared)
@@ -568,7 +574,7 @@ function m.fromOrientedCylinder(cframe, size, shared)
 	local segments = 24
 	local a, b = cframe*cf(v3nx*size), cframe*cf(v3x*size) -- bottom, top of cylinder
 	local ap, bp = a.p, b.p
-	local r = math.min(size.y, size.z) --local sy, sz = size.y, size.z
+	local r = min(size.y, size.z) --local sy, sz = size.y, size.z
 	local polygons = {}
 	for i = 0, segments - 1 do
 		local theta = (i*(2*pi)/segments)
@@ -708,8 +714,8 @@ function m.fromAxisAlignedCornerWedge(position, size, shared)
 end
 
 function m.fromOrientedCornerWedge(cframe, size, shared) 
-	local n3 = vtws(cframe, (cf(0,0,0, 0,-1,0, 1,0,0, 0,0,0)*(size*2)).unit)
-	local n4 = vtws(cframe, (cf(0,0,0, 0,0,0, 0,0,1, 0,1,0)*(size*2)).unit)
+	local n3 = vtws(cframe, (CornerWedgeSlope1CFrame*(size*2)).unit)
+	local n4 = vtws(cframe, (CornerWedgeSlope2CFrame*(size*2)).unit)
 	local lookVector, upVector, rightVector = cframe.lookVector, cframe.upVector, cframe.rightVector
 	local n1, n2, n5 = -upVector, lookVector, rightVector
 	size = size * .5
@@ -750,7 +756,7 @@ function m.fromAxisAlignedWedge(position, size, shared)
 end
 
 function m.fromOrientedWedge(cframe, size, shared) 
-	local n1 = vtws(cframe, (cf(0,0,0, 0,0,0, 0,0,1, 0,-1,0)*size).unit)
+	local n1 = vtws(cframe, (WedgeSlopeCFrame*size).unit)
 	local lookVector, upVector, rightVector = cframe.lookVector, cframe.upVector, cframe.rightVector
 	local n2, n3, n4, n5 = -lookVector, -upVector, -rightVector, rightVector
 	size = size * .5
@@ -815,7 +821,7 @@ function m.fromOrientedBlock(cframe, size, shared)
 	)
 end
 
-local epsilon = 1e-3
+local epsilon = planeEpsilon
 local function Vector3FuzzyEq(v1, v2)
 	local v1x, v2x = v1.X, v2.X
 	if v1x == v2x or abs(v1x - v2x) <= (abs(v1x) + 1) * epsilon then
@@ -843,7 +849,7 @@ function m.getCSGFromPart(Part, Properties)
 		local Shape = Part.Shape
 		if Shape == Enum.PartType.Ball then
 			local PartSize = Part.Size
-			return m.fromSphere(Part.Position, math.min(PartSize.x, PartSize.y, PartSize.z), Properties)
+			return m.fromSphere(Part.Position, min(PartSize.x, PartSize.y, PartSize.z), Properties)
 		end
 		local PartCFrame = Part.CFrame
 		if Shape == Enum.PartType.Block then
@@ -860,7 +866,7 @@ function m.getCSGFromPart(Part, Properties)
 			end
 		elseif Shape == Enum.PartType.Cylinder then
 			if isCFrameAxisAligned(PartCFrame) then
-				return m.fromOrientedCylinder(PartCFrame, Part.Size, Properties) --csg.fromAxisAlignedCylinder(part.Position, HalfSize, Properties)
+				return m.fromOrientedCylinder(PartCFrame, Part.Size, Properties) --m.fromAxisAlignedCylinder(Part.Position, Part.Size, Properties)
 			else	
 				return m.fromOrientedCylinder(PartCFrame, Part.Size, Properties)
 			end
@@ -943,6 +949,8 @@ function m:offsetTowardsPosition(position, mindistance)
 	end
 	return other
 end
+
+
 
 function m.stitch(csg1, csg2, shared)
 	local polygons1, polygons2, newcsg = csg1.polygons, csg2.polygons, nil

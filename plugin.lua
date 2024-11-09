@@ -19,7 +19,7 @@ local pluginSeparate = plugin.Separate
 
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
-local getTreeFromCSG -- create a tree that represents the csg operations
+local getTreeFromCSG -- create a tree of instances that represents the csg operations
 getTreeFromCSG = function(tbl)
 	local tree = {}
 	for _, instance in ipairs(tbl) do
@@ -35,7 +35,7 @@ getTreeFromCSG = function(tbl)
 			end
 			tree[instance] = branch
 		else
-			tree[instance] = true -- part, has no child nodes
+			tree[instance] = false -- part, has no child nodes
 		end
 	end
 	return true, tree
@@ -45,7 +45,7 @@ local traverseTree -- traverse and sort tree into level order, bottom up
 traverseTree = function(tree, levels, csgInstance)
 	local level = {csgInstance} -- new level, mark it with which union/negate it belongs to
 	for instance, branch in pairs(tree) do
-		if instance.ClassName == "UnionOperation" or instance.ClassName == "NegateOperation" then
+		if branch ~= false then
 			traverseTree(branch, levels, instance)
 		end
 		table.insert(level, instance) -- add node to level
@@ -55,10 +55,10 @@ traverseTree = function(tree, levels, csgInstance)
 	end
 end
 
-local cleanUpTree
+local cleanUpTree -- traverse and clean up instances in tree
 cleanUpTree = function(tree)
 	for instance, branch in pairs(tree) do
-		if instance.ClassName == "UnionOperation" or instance.ClassName == "NegateOperation" then
+		if branch ~= false then
 			cleanUpTree(branch)
 		end
 		tree[instance] = nil

@@ -4,7 +4,7 @@ local insert = table.insert
 local bor = bit32.bor -- you can use a lua 5.1 bitwise library as a replacement in pre 2019 roblox
 local vec3zero = vec3()
 
-local planeEpsilon = 0.0002 --1e-5 -- tolerance used by `splitPolygon()` to decide if a point is on the plane
+local planeEpsilon = 0.0005 --1e-5 -- tolerance used by `splitPolygon()` to decide if a point is on the plane
 
 local newVertex, newNode, newPolygon, newPlane, newPlaneFromPoints
 
@@ -325,8 +325,8 @@ function m.Plane:splitPolygon(polygon, coplanarFront, coplanarBack, front, back)
 	-- Classify each point as well as the entire polygon into one of the above four classes.
 	local types, lookup = {}, {}
 	for i = 1, NumPolygonVertices do
-		local NormalDotPosition = selfNormal:Dot(PolygonVertices[i].pos)
-		local t = NormalDotPosition - selfW
+		local selfNormalDotVertex = selfNormal:Dot(PolygonVertices[i].pos)
+		local t = selfNormalDotVertex - selfW
 		local ptype = COPLANAR
 		if (t <= -planeEpsilon) then
 			ptype = BACK
@@ -337,7 +337,7 @@ function m.Plane:splitPolygon(polygon, coplanarFront, coplanarBack, front, back)
 			polygonType = bor(polygonType, ptype)
 		end
 		insert(types, ptype)
-		lookup[i] = NormalDotPosition --lookup table instead of doing dot products twice
+		lookup[i] = selfNormalDotVertex --lookup table instead of doing dot products twice
 	end
 
 	-- Put the polygon in the correct list, splitting it when necessary.
@@ -566,15 +566,42 @@ local wn1 = vec3(0, 0.7071067690849304, -0.7071067690849304)
 
 -- "Roblox cylinders also have the interesting quirk of not being regular. The sides get smaller as the angle approaches pi*(2n+1)/4 and get larger as the angle approaches pi*n/2."
 function m.fromAxisAlignedCylinder(position, size, shared)
-
+	size = size * .5
+	local segments = 24
+	local a, b = position+(v3nx*size), position+(v3x*size) -- bottom, top of cylinder
+	local r = min(size.y, size.z) --local sy, sz = size.y, size.z
+	local lowerVertices, upperVertices = {}, {}
+	local polygons = {}
+	for i = 0, segments - 1 do
+		local theta = (i*(2*pi)/segments)
+		local costheta, sintheta = cos(theta), sin(theta)
+		local v1 = (a+vec3(0, r*costheta, r*sintheta))
+		local v2 = (b+vec3(0, r*costheta, r*sintheta))
+		theta = ((i + 1)*(2*pi)/segments)
+		costheta, sintheta = cos(theta), sin(theta)
+		local v3 = (a+vec3(0, r*costheta, r*sintheta))
+		local v4 = (b+vec3(0, r*costheta, r*sintheta))
+		local n = (v2-v3):Cross(v1-v3).unit
+		insert(polygons, newPolygon({newVertex(v4,n), newVertex(v2,n), newVertex(v1,n), newVertex(v3,n)}, shared))
+		--insert(polygons, newPolygon({newVertex(v2,v3x), newVertex(v4,v3x), newVertex(b,v3x)}, shared))
+		--insert(polygons, newPolygon({newVertex(v3,v3nx), newVertex(v1,v3nx), newVertex(a,v3nx)}, shared))
+		insert(upperVertices, newVertex(v4, v3x))
+		insert(lowerVertices, 1, newVertex(v1, v3nx))
+	end
+	insert(polygons, newPolygon(lowerVertices, shared))
+	insert(polygons, newPolygon(upperVertices, shared))
+	return setmetatable({["polygons"] = polygons}, m)
 end
 
 function m.fromOrientedCylinder(cframe, size, shared)
 	size = size * .5
 	local segments = 24
+	local an = cframe.RightVector
+	local bn = -an
 	local a, b = cframe*cf(v3nx*size), cframe*cf(v3x*size) -- bottom, top of cylinder
 	local ap, bp = a.p, b.p
 	local r = min(size.y, size.z) --local sy, sz = size.y, size.z
+	local lowerVertices, upperVertices = {}, {}
 	local polygons = {}
 	for i = 0, segments - 1 do
 		local theta = (i*(2*pi)/segments)
@@ -585,11 +612,15 @@ function m.fromOrientedCylinder(cframe, size, shared)
 		costheta, sintheta = cos(theta), sin(theta)
 		local v3 = (a*cf(0, r*costheta, r*sintheta)).p
 		local v4 = (b*cf(0, r*costheta, r*sintheta)).p
-		insert(polygons, newPolygon({newVertex(v4), newVertex(v2), newVertex(v1)}, shared))
-		insert(polygons, newPolygon({newVertex(v3), newVertex(v4), newVertex(v1)}, shared))
-		insert(polygons, newPolygon({newVertex(v2), newVertex(v4), newVertex(bp)}, shared))
-		insert(polygons, newPolygon({newVertex(v3), newVertex(v1), newVertex(ap)}, shared))
+		local n = (v2-v3):Cross(v1-v3).unit
+		insert(polygons, newPolygon({newVertex(v4,n), newVertex(v2,n), newVertex(v1,n), newVertex(v3,n)}, shared))
+		--insert(polygons, newPolygon({newVertex(v2,an), newVertex(v4,an), newVertex(bp,an)}, shared))
+		--insert(polygons, newPolygon({newVertex(v3,bn), newVertex(v1,bn), newVertex(ap,bn)}, shared))
+		--insert(upperVertices, newVertex(v4, an))
+		--insert(lowerVertices, 1, newVertex(v1, bn))
 	end
+	--insert(polygons, newPolygon(lowerVertices, shared))
+	--insert(polygons, newPolygon(upperVertices, shared))
 	return setmetatable({["polygons"] = polygons}, m)
 end
 
@@ -684,12 +715,9 @@ function m.fromSphere(position, radius, shared) --radius is math.min(PartSize.x,
 
 	local polygons = {}
 	for i = 1, #ilist - 2, 3 do
-		local v1, v2, v3 = vlist[ilist[i + 0]], vlist[ilist[i + 1]], vlist[ilist[i + 2]]
-		local triangle = {
-			newVertex(vec3(unpack(v1)), vec3(select(4, unpack(v1)))),
-			newVertex(vec3(unpack(v2)), vec3(select(4, unpack(v2)))),
-			newVertex(vec3(unpack(v3)), vec3(select(4, unpack(v3))))}
-		insert(polygons, newPolygon(triangle, shared))
+		local a, b, c = vec3(unpack(vlist[ilist[i]])), vec3(unpack(vlist[ilist[i+1]])), vec3(unpack(vlist[ilist[i+2]]))
+		local n = (b-a):Cross(c-a).unit
+		insert(polygons, newPolygon({newVertex(a, n), newVertex(b, n), newVertex(c, n)}, shared))
 	end
 	return setmetatable({["polygons"] = polygons}, m)
 end
@@ -714,8 +742,8 @@ function m.fromAxisAlignedCornerWedge(position, size, shared)
 end
 
 function m.fromOrientedCornerWedge(cframe, size, shared) 
-	local n3 = vtws(cframe, (CornerWedgeSlope1CFrame*(size*2)).unit)
-	local n4 = vtws(cframe, (CornerWedgeSlope2CFrame*(size*2)).unit)
+	local n3 = vtws(cframe, (CornerWedgeSlope1CFrame*(size)).unit)
+	local n4 = vtws(cframe, (CornerWedgeSlope2CFrame*(size)).unit)
 	local lookVector, upVector, rightVector = cframe.lookVector, cframe.upVector, cframe.rightVector
 	local n1, n2, n5 = -upVector, lookVector, rightVector
 	size = size * .5
@@ -821,7 +849,7 @@ function m.fromOrientedBlock(cframe, size, shared)
 	)
 end
 
-local epsilon = planeEpsilon
+local epsilon = 1e-7
 local function Vector3FuzzyEq(v1, v2)
 	local v1x, v2x = v1.X, v2.X
 	if v1x == v2x or abs(v1x - v2x) <= (abs(v1x) + 1) * epsilon then
@@ -841,7 +869,8 @@ local function FloatFuzzyEq(f1, f2)
 end
 
 local function isCFrameAxisAligned(cframe)
-	return (cframe.rightVector == v3x and cframe.upVector == v3y and cframe.lookVector == v3nz)
+	--return (cframe.rightVector == v3x and cframe.upVector == v3y and cframe.lookVector == v3nz)
+	return Vector3FuzzyEq(cframe.rightVector, v3x) and Vector3FuzzyEq(cframe.upVector, v3y) and Vector3FuzzyEq(cframe.lookVector, v3nz)
 end
 
 function m.getCSGFromPart(Part, Properties)
@@ -866,7 +895,7 @@ function m.getCSGFromPart(Part, Properties)
 			end
 		elseif Shape == Enum.PartType.Cylinder then
 			if isCFrameAxisAligned(PartCFrame) then
-				return m.fromOrientedCylinder(PartCFrame, Part.Size, Properties) --m.fromAxisAlignedCylinder(Part.Position, Part.Size, Properties)
+				return m.fromAxisAlignedCylinder(Part.Position, Part.Size, Properties)
 			else	
 				return m.fromOrientedCylinder(PartCFrame, Part.Size, Properties)
 			end
@@ -1001,7 +1030,7 @@ function m.extrudeToPoint(csg, point, shared)
 			local polys = {polygon:clone()}
 			polys[1]:flip()
 			for i1 = 1, #verts do
-				insert(polys, newPolygon({newVertex(verts[i1].post), newVertex(verts[(i1 == #verts and 1) or i1 + 1].pos), newVertex(point)}, shared))
+				insert(polys, newPolygon({newVertex(verts[i1].pos), newVertex(verts[(i1 == #verts and 1) or i1 + 1].pos), newVertex(point)}, shared))
 			end
 			newcsg = (newcsg and newcsg:union(setmetatable({["polygons"] = polys}, m))) or setmetatable({["polygons"] = polys}, m)
 		end

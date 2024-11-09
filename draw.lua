@@ -24,7 +24,7 @@ WedgeMesh.Scale = vec3(0,1,1)
 local m = {}
 
 local function getProperties(Part)
-	return {
+	return { --visual properties that csg polygon objects will keep track of
 		["BrickColor"] = Part.BrickColor,
 		["Material"] = Part.Material,
 	}
@@ -99,7 +99,7 @@ function m.NormalsCSG(csg)
 	for index, polygon in ipairs(polygons) do
 		local vertices = polygon.vertices
 		local numVertices = #vertices
-		local normal = vertices[1].normal
+		local normal = vertices[1].normal --((vertices[2].pos-vertices[1].pos):Cross(vertices[3].pos-vertices[1].pos)).unit
 		local average = vec3()
 		for i = 1, numVertices do
 			average = average + vertices[i].pos

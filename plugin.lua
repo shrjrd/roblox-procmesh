@@ -9,13 +9,13 @@ NOTES:
 	uses plugin:Separate(), which is only available for plugins in roblox versions 2015E+
 
 ]]
-
 local ModuleContainer = script.Parent
 local csg = require(ModuleContainer.csg)
 local draw = require(ModuleContainer.draw)
 local getCSGFromPart = csg.getCSGFromPart
 local getProperties = draw.getProperties
 local drawCSG = draw.Polygons
+local pluginSeparate = plugin.Separate
 
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
@@ -24,13 +24,21 @@ getTreeFromCSG = function(tbl)
 	local tree = {}
 	for _, instance in ipairs(tbl) do
 		if instance.ClassName == "UnionOperation" or instance.ClassName == "NegateOperation" then
-			local SeparatedInstances = plugin:Separate({instance})
-			tree[instance] = getTreeFromCSG(SeparatedInstances) -- create new child nodes from parent union's separated components
+			local success, SeparatedInstances = pcall(pluginSeparate, plugin, {instance})
+			if success == false then 
+				print("plugin:Separate() failed on '"..instance.Name.."'")
+				return SeparatedInstances, tree
+			end
+			local status, branch = getTreeFromCSG(SeparatedInstances) -- create new child nodes from parent union's separated components
+			if status ~= true then
+				return status, tree
+			end
+			tree[instance] = branch
 		else
 			tree[instance] = true -- part, has no child nodes
 		end
 	end
-	return tree
+	return true, tree
 end
 
 local traverseTree -- traverse and sort tree into level order, bottom up
@@ -47,11 +55,29 @@ traverseTree = function(tree, levels, csgInstance)
 	end
 end
 
-local function recreateCSG(UnionOperation, DeleteOriginal, UseNegateProperties)
-	local csgTree = getTreeFromCSG({UnionOperation:Clone()}) -- print(csgTree)
+local cleanUpTree
+cleanUpTree = function(tree)
+	for instance, branch in pairs(tree) do
+		if instance.ClassName == "UnionOperation" or instance.ClassName == "NegateOperation" then
+			cleanUpTree(branch)
+		end
+		tree[instance] = nil
+		instance:Destroy()
+	end
+end
 
+local function recreateCSG(UnionOperation, DeleteOriginal, UseNegateProperties)
+	local status, csgTree = getTreeFromCSG({UnionOperation:Clone()})
+	
+	if status ~= true then
+		print(status)
+		print("Error creating CSG tree for '"..UnionOperation.Name.."', skipping")
+		cleanUpTree(csgTree)
+		return
+	end
+	
 	local csgTreeLevels = {}
-	traverseTree(csgTree, csgTreeLevels) -- print(csgTreeLevels)
+	traverseTree(csgTree, csgTreeLevels)
 
 	local csgObjects = {}
 
@@ -61,7 +87,7 @@ local function recreateCSG(UnionOperation, DeleteOriginal, UseNegateProperties)
 
 		local csgObject = nil
 		if csgInstanceClass == "UnionOperation" then -- if the tree level is for a union
-			local NegateOperations = {}
+			local NegateOperations, NumNegates = {}, 0
 
 			for i = 2, #level do -- for each node in the level
 				local instance = level[i]
@@ -72,7 +98,8 @@ local function recreateCSG(UnionOperation, DeleteOriginal, UseNegateProperties)
 						(csgObject and csgObject:union(csgObjects[instance])) 
 						or csgObjects[instance]
 				elseif instanceClass == "NegateOperation" then -- if a negate node
-					table.insert(NegateOperations, csgObjects[instance])
+					NumNegates = NumNegates + 1
+					NegateOperations[NumNegates] = csgObjects[instance]
 				elseif instanceClass == "Part" then -- if a part node
 					csgObject = 
 						( csgObject and csgObject:union( getCSGFromPart(instance, getProperties(instance)) ) ) 
@@ -80,7 +107,7 @@ local function recreateCSG(UnionOperation, DeleteOriginal, UseNegateProperties)
 				end -- end if
 			end -- end for
 
-			for i = 1, #NegateOperations do -- do the negates after the unions (the lua csg implementation doesn't union negates, only subtracts)
+			for i = 1, NumNegates do -- do the negates after the unions (the lua csg implementation doesn't union negates, only subtracts)
 				csgObject = csgObject:subtract(NegateOperations[i])
 			end
 		elseif csgInstanceClass == "NegateOperation" then -- if the tree level is for a negate, child is either a union or part
@@ -118,7 +145,6 @@ local function recreateCSG(UnionOperation, DeleteOriginal, UseNegateProperties)
 		csgObjects[instance] = nil
 		instance:Destroy()
 	end
-	return Model
 end
 
 local function recreateTableOfCSG(tbl, DeleteOriginal, UseNegateProperties)
@@ -130,10 +156,10 @@ local function recreateTableOfCSG(tbl, DeleteOriginal, UseNegateProperties)
 	end
 	NumTbl = #tbl
 
-	local printInterval = math.floor((NumTbl/100))
+	local printInterval = math.ceil(NumTbl/100)
 
-	local t0 = tick()
 	print("started recreating table of union(s)")
+	local t0 = tick()
 	for index, instance in ipairs(tbl) do
 		recreateCSG(instance, DeleteOriginal, UseNegateProperties)
 		task.wait(1/60)
@@ -163,13 +189,13 @@ end
 
 local function repeatTryBeginRecording(name)
 	local recording
-	local count = 1
+	local count = 0
 	repeat
 		recording = ChangeHistoryService:TryBeginRecording(name)
 		count = count + 1
 	until recording ~= nil or count >= 30
 	if recording == nil then
-		print("ChangeHistoryService:TryBeginRecording("..name..") failed")
+		print("ChangeHistoryService:TryBeginRecording('"..name.."') failed after "..count.." tries")
 	end
 	return recording
 end
